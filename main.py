@@ -31,7 +31,7 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    print(f"DEBUG: Autor: {message.author.id})
+    print(f"DEBUG: Autor: {message.author.id}")
     print(f"DEBUG: Canal: {message.channel.id}")
     # Ignorar mensajes propios
     if message.author == bot.user:
