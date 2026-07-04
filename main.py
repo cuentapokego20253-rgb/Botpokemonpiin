@@ -9,4 +9,4 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
-bot.run('MTUyMjc3NjYzODI2ODM3NTA5MA.GD_9Sv.GPRT3QkMYGsWCKVBV9Xn79XlXV5kSH5AjraOqM')
+bot.run(os.environ['DISCORD_TOKEN'])
