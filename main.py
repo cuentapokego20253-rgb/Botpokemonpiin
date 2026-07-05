@@ -38,7 +38,8 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    # Verificar si el mensaje viene de PoryPro y del canal 100A
+    # Verificar si el mensaje viene de PoryPro y del canal 100A 
+    print(f"DEBUG: Mensaje del canal {message.channel.id} y autor {message.author.id}")
     if message.author.id == PORY_ID and message.channel.id == SOURCE_ID:
         content = message.content
         # Buscar coordenadas en el mensaje (ejemplo: @-33.123, -71.123)
