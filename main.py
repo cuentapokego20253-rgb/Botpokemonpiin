@@ -56,6 +56,6 @@ async def on_message(message):
             embed.set_image(url=map_url)
             await canal_destino.send(embed=embed)
 
-     await bot.process_commands(message)
+    await bot.process_commands(message)
 
 bot.run(os.environ['DISCORD_TOKEN'])
