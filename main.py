@@ -16,6 +16,7 @@ def keep_alive():
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 #Variables configuradas en Render,
