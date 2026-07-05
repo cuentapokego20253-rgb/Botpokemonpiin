@@ -50,12 +50,12 @@ async def on_message(message):
         map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}&key={MAPS_KEY}"
 
 # Crear y enviar el mensaje con el mapa al canal 100B,
-canal_destino = bot.get_channel(DEST_ID)
-if canal_destino:
-    embed = discord.Embed(title="Nueva ubicación detectada", description=content)
-    embed.set_image(url=map_url)
-    await canal_destino.send(embed=embed)
+        canal_destino = bot.get_channel(DEST_ID)
+        if canal_destino:
+            embed = discord.Embed(title="Nueva ubicación detectada", description=content)
+            embed.set_image(url=map_url)
+            await canal_destino.send(embed=embed)
 
-await bot.process_commands(message)
+     await bot.process_commands(message)
 
 bot.run(os.environ['DISCORD_TOKEN'])
