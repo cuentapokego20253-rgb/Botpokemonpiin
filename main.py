@@ -50,7 +50,7 @@ async def on_message(message):
                              lat, lon = coords.groups()
                              mapa_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}"
                              nuevo_embed.set_image(url=mapa_url)
-         await destino.send(embed=nuevo_embed)
+          await destino.send(embed=nuevo_embed)
 
 async def main():
     async with aiohttp.ClientSession() as session:
