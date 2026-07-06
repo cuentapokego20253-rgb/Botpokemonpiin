@@ -41,16 +41,16 @@ async def on_message(message):
     for embed in message.embeds:
         nuevo_embed = embed.copy()
          
-         if message.components:
-             for component in message.components:
-                 for child in component.children:
-                     if hasattr(child, 'url') and child.url and "google" in child.url:
-                         coords = re.search(r'q=(-?\d+\.\d+),(-?\d+\.\d+)', child.url)
-                         if coords:
-                             lat, lon = coords.groups()
-                             mapa_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}"
-                             nuevo_embed.set_image(url=mapa_url)
-          await destino.send(embed=nuevo_embed)
+    if message.components:
+        for component in message.components:
+            for child in component.children:
+                if hasattr(child, 'url') and child.url and "google" in child.url:
+                    coords = re.search(r'q=(-?\d+\.\d+),(-?\d+\.\d+)', child.url)
+                    if coords:
+                        lat, lon = coords.groups()
+                        mapa_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}"
+                        nuevo_embed.set_image(url=mapa_url)
+    await destino.send(embed=nuevo_embed)
 
 async def main():
     async with aiohttp.ClientSession() as session:
