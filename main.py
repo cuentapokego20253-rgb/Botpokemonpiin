@@ -4,7 +4,8 @@ from discord.ext import commands
 from flask import Flask
 from threading import Thread
 import re
-
+import aiohttp
+import io
 # Servidor web para mantenerlo despierto,
 app = Flask(__name__)
 @app.route('/')
@@ -18,7 +19,10 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
-
+# Inicializamos la sesión para descargar imágenes
+@bot.event
+async def setup_hook():
+    bot.session = aiohttp.ClientSession()
 #Variables configuradas en Render,
 SOURCE_ID = int(os.environ['SOURCE_CHANNEL_ID'])
 DEST_ID = int(os.environ['DESTINATION_CHANNEL_ID'])
@@ -32,30 +36,23 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    # Configuración de los canales de origen y destino
-    CANAL_ORIGEN = 1522694582171599011
-    CANAL_DESTINO = 1522738552587157536
-
-    # Ignorar mensajes propios del bot para evitar bucles
-    if message.author == bot.user:
-        return
-
-    # Verificar si el mensaje viene del canal 100A
-    if message.channel.id == CANAL_ORIGEN:
-        destino = bot.get_channel(CANAL_DESTINO)
-        
-        # Si el canal destino existe, procedemos a reenviar
-        if destino:
-            # Reenviar texto si el mensaje tiene contenido escrito
-            if message.content:
-                await destino.send(message.content)
-            
-            # Reenviar la tarjeta (embed) con el mapa que envía PoryPro
-            for embed in message.embeds:
-                await destino.send(embed=embed)
-            
-            print(f"DEBUG: Mensaje reenviado correctamente al canal 100B")
-
-    await bot.process_commands(message)
-
-bot.run(os.environ['DISCORD_TOKEN'])
+    if message.author.id == PORY_ID:
+        if message.channel.id == SOURCE_ID:
+            destino = bot.get_channel(DEST_ID)
+            if destino:
+                if message.content: 
+                    await destino.send(message.content)
+                for embed in message.embeds:
+                    await destino.send(embed=embed)
+                    if embed.url and "maps.google.com" in embed.url:
+                        coords = re.search(r'q=(-?\d+\.\d+),(-?\d+\.\d+)', embed.url)
+                        if coords:
+                            lat, lon = coords.groups()
+                            mapa_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}&key={MAPS_KEY}"
+                            try:
+                                async with bot.session.get(mapa_url) as resp:
+                                    if resp.status == 200:
+                                        data = await resp.read()
+                                        await destino.send("Mapa del hallazgo:", file=discord.File(io.BytesIO(data), filename="mapa.png"))
+                            except Exception as e:
+                                print(f"Error: {e}")
