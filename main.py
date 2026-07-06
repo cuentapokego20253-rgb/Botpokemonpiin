@@ -46,6 +46,7 @@ async def on_message(message):
                     if message.components:
                         for component in message.components:
                             for child in component.children:
+                                print(f"DEBUG: Revisando boton - URL detectada: {getattr(child, 'url', 'N/A')}")
                                 if hasattr(child, 'url') and child.url and "maps.google.com" in child.url:
                                     coords = re.search(r'q=(-?\d+\.\d+),(-?\d+\.\d+)', child.url)
                                     if coords:
