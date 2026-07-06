@@ -38,8 +38,8 @@ async def on_message(message):
     if not message.embeds:
         return
         
-     for embed in message.embeds:
-         nuevo_embed = embed.copy()
+    for embed in message.embeds:
+        nuevo_embed = embed.copy()
          
          if message.components:
              for component in message.components:
