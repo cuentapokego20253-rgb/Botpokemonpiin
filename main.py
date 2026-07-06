@@ -41,7 +41,7 @@ async def on_message(message):
     for embed in message.embeds:
         nuevo_embed = embed.copy()
          
-    if message.components:
+    if True:
         for component in message.components:
             for child in component.children:
                 if hasattr(child, 'url') and child.url and "google" in child.url:
