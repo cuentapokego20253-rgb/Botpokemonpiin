@@ -35,30 +35,22 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    if message.author.id == PORY_ID:
-        if message.channel.id == SOURCE_ID:
-            destino = bot.get_channel(DEST_ID)
-            if destino:
-                if message.content: 
-                    await destino.send(message.content)
-                for embed in message.embeds:
-                    await destino.send(embed=embed)
-                    if message.components:
-                        for component in message.components:
-                            for child in component.children:
-                                print(f"DEBUG: Revisando boton - URL detectada: {getattr(child, 'url', 'N/A')}")
-                                if hasattr(child, 'url') and child.url and "maps.google.com" in child.url:
-                                    coords = re.search(r'q=(-?\d+\.\d+),(-?\d+\.\d+)', child.url)
-                                    if coords:
-                                        lat, lon = coords.groups()
-                                        mapa_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}"
-                                        try:
-                                            async with bot.session.get(mapa_url) as resp:
-                                                if resp.status == 200:
-                                                    data = await resp.read()
-                                                    await destino.send("Mapa del hallazgo:", file=discord.File(io.BytesIO(data), filename="mapa.png"))
-                                        except Exception as e:
-                                            print(f"Error generando mapa: {e}")
+    if not message.embeds:
+        return
+        
+     for embed in message.embeds:
+         nuevo_embed = embed.copy()
+         
+         if message.components:
+             for component in message.components:
+                 for child in component.children:
+                     if hasattr(child, 'url') and child.url and "google" in child.url:
+                         coords = re.search(r'q=(-?\d+\.\d+),(-?\d+\.\d+)', child.url)
+                         if coords:
+                             lat, lon = coords.groups()
+                             mapa_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}"
+                             nuevo_embed.set_image(url=mapa_url)
+         await destino.send(embed=nuevo_embed)
 
 async def main():
     async with aiohttp.ClientSession() as session:
