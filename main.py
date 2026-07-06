@@ -32,29 +32,29 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    print(f"DEBUG: Autor: {message.author.id}")
-    print(f"DEBUG: Mensaje recibido en canal {message.channel.id} de autor {message.author.id} (Nombre: {message.author.name})")
-    # Ignorar mensajes propios
+    # Configuración de los canales de origen y destino
+    CANAL_ORIGEN = 1522694582171599011
+    CANAL_DESTINO = 1522738552587157536
+
+    # Ignorar mensajes propios del bot para evitar bucles
     if message.author == bot.user:
         return
 
-    # Verificar si el mensaje viene de PoryPro y del canal 100A 
-    print(f"DEBUG: Mensaje del canal {message.channel.id} y autor {message.author.id}")
-    #if message.author.id == PORY_ID and message.channel.id == SOURCE_ID:
-    content = message.content
-    # Buscar coordenadas en el mensaje (ejemplo: @-33.123, -71.123)
-    coords = re.findall(r'@(-?\d+.\d+),\s*(-?\d+.\d+)', content)
-
-    if coords:
-        lat, lon = coords[0]
-        map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}&key={MAPS_KEY}"
-
-# Crear y enviar el mensaje con el mapa al canal 100B,
-        canal_destino = bot.get_channel(DEST_ID)
-        if canal_destino:
-            embed = discord.Embed(title="Nueva ubicación detectada", description=content)
-            embed.set_image(url=map_url)
-            await canal_destino.send(embed=embed)
+    # Verificar si el mensaje viene del canal 100A
+    if message.channel.id == CANAL_ORIGEN:
+        destino = bot.get_channel(CANAL_DESTINO)
+        
+        # Si el canal destino existe, procedemos a reenviar
+        if destino:
+            # Reenviar texto si el mensaje tiene contenido escrito
+            if message.content:
+                await destino.send(message.content)
+            
+            # Reenviar la tarjeta (embed) con el mapa que envía PoryPro
+            for embed in message.embeds:
+                await destino.send(embed=embed)
+            
+            print(f"DEBUG: Mensaje reenviado correctamente al canal 100B")
 
     await bot.process_commands(message)
 
