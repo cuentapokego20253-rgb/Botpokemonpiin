@@ -19,10 +19,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
+bot.session = aiohttp.ClientSession()
 # Inicializamos la sesión para descargar imágenes
-@bot.event
-async def setup_hook():
-    bot.session = aiohttp.ClientSession()
 #Variables configuradas en Render,
 SOURCE_ID = int(os.environ['SOURCE_CHANNEL_ID'])
 DEST_ID = int(os.environ['DESTINATION_CHANNEL_ID'])
