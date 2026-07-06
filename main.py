@@ -19,7 +19,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
-bot.session = aiohttp.ClientSession()
+async def setup_hook():
+    bot.session = aiohttp.ClientSession()
 # Inicializamos la sesión para descargar imágenes
 #Variables configuradas en Render,
 SOURCE_ID = int(os.environ['SOURCE_CHANNEL_ID'])
@@ -54,3 +55,13 @@ async def on_message(message):
                                         await destino.send("Mapa del hallazgo:", file=discord.File(io.BytesIO(data), filename="mapa.png"))
                             except Exception as e:
                                 print(f"Error: {e}")
+                                
+async def main():
+    async with aiohttp.ClientSession() as session:
+        bot.session = session
+        await bot.start(os.environ['DISCORD_TOKEN'])
+
+keep_alive()
+
+import asyncio
+asyncio.run(main())
