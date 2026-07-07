@@ -50,7 +50,7 @@ async def on_message(message):
             
             if coords:
                 lat, lon = coords.groups()
-                api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&key={MAPS_KEY}"
+                api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=17&markers=color:red%7C{lat},{lon}&size=600x300&key={MAPS_KEY}"
                 nuevo_embed.set_image(url=api_map_url)
             
             canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
