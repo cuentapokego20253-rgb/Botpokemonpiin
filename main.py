@@ -41,7 +41,7 @@ async def on_message(message):
     for embed in message.embeds:
         nuevo_embed = embed.copy()
          
-    print(DEBUG: Mensaje recibido. Tiene componentes {bool(message.components)}")
+    print(DEBUG: Mensaje recibido. Tiene componentes: {bool(message.components)}")
     if message.components:
         for component in message.components:
             for child in component.children:
