@@ -19,7 +19,7 @@ PORY_ID = int(os.environ['POKEMON_BOT_ID'])
 MAPS_KEY = os.environ['GOOGLE_MAPS_API_KEY']
 
 # Servidor web para mantenerlo despierto en Render
-app = Flask(_name_)
+app = Flask(__name__)
 @app.route('/')
 def home(): return "Bot activo"
 def run(): app.run(host='0.0.0.0', port=8080)
