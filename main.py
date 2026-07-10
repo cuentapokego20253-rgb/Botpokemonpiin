@@ -56,8 +56,8 @@ async def on_message(message):
                 lat_f, lon_f = float(lat), float(lon)
                 c40 = "".join([f"|{lat_f + (40/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
                 c80 = "".join([f"|{lat_f + (80/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
-                api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=17&markers=color:red%7C{lat},{lon}&size=600x300&path=color:0xFF0000|weight:2{c40}&path=color:0x0000FF|weight:2{c80}&key={MAPS_KEY}"
-                canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
+                api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=17&markers=color:red%7C{lat},{lon}&path=color:0xFF0000|weight:2{c40}&path=color:0x0000FF|weight:2{c80}&key={MAPS_KEY}"
+                nuevo_embed.set_image(url=api_map_url)
             if canal_destino:
                 await canal_destino.send(embed=nuevo_embed)
 
