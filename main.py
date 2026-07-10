@@ -6,10 +6,14 @@ from discord.ext import commands
 from flask import Flask
 from threading import Thread
 
-app = Flask(__name__)
+app = Flask(_name_)
 @app.route('/')
-def home(): return "Bot activo"
-def run(): app.run(host='0.0.0.0', port=8080)
+def home():
+    return "Bot activo"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
 def keep_alive():
     t = Thread(target=run)
     t.start()
@@ -57,11 +61,10 @@ async def on_message(message):
                 c40 = "".join([f"|{lat_f + (40/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
                 c80 = "".join([f"|{lat_f + (80/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
                 api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=17&markers=color:red%7C{lat},{lon}&path=color:0xFF0000|weight:2{c40}&path=color:0x0000FF|weight:2{c80}&key={MAPS_KEY}"
-                print(f"DEBUG: URL creada correctamente: {api_map_url}") # ESTA LÍNEA ES PARA VERIFICAR
                 nuevo_embed.set_image(url=api_map_url)
-
+            
             canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
             if canal_destino:
                 await canal_destino.send(embed=nuevo_embed)
 
-bot.run(os.environ['DISCORD_TOKEN'])
+bot.run(os.environ['TOKEN'])
