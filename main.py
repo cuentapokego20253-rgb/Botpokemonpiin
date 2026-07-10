@@ -1,6 +1,7 @@
 import os
 import discord
 import re
+import math
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
@@ -50,14 +51,13 @@ async def on_message(message):
             embed_texto = str(embed.to_dict())
             coords = re.search(r'(-?\d{1,2}\.\d{3,})(?:,|%2C)\s*(-?\d{1,3}\.\d{3,})', embed_texto)
             
-            if coords:
-                lat, lon = coords.groups()
-                import math
-                lat_f, lon_f = float(lat), float(lon)
-                c40 = "".join([f"|{lat_f + (40/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
-                c80 = "".join([f"|{lat_f + (80/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
-                api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=17&markers=color:red%7C{lat},{lon}&path=color:0xFF0000|weight:2{c40}&path=color:0x0000FF|weight:2{c80}&key={MAPS_KEY}"
-                nuevo_embed.set_image(url=api_map_url)
+           if coords:
+            lat, lon = coords.groups()
+            lat_f, lon_f = float(lat), float(lon)
+            c40 = "".join([f"|{lat_f + (40/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
+            c80 = "".join([f"|{lat_f + (80/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
+            api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=17&markers=color:red%7C{lat},{lon}&path=color:0xFF0000|weight:2{c40}&path=color:0x0000FF|weight:2{c80}&key={MAPS_KEY}"
+            nuevo_embed.set_image(url=api_map_url)
             if canal_destino:
                 await canal_destino.send(embed=nuevo_embed)
 
