@@ -51,13 +51,16 @@ async def on_message(message):
             embed_texto = str(embed.to_dict())
             coords = re.search(r'(-?\d{1,2}\.\d{3})(?:,|%2C)\s*(-?\d{1,3}\.\d{3})', embed_texto)
             
-            if coords:
+           if coords:
                 lat, lon = coords.groups()
                 lat_f, lon_f = float(lat), float(lon)
                 c40 = "".join([f"|{lat_f + (40/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
                 c80 = "".join([f"|{lat_f + (80/111320.0)*math.cos(i*math.pi/12):.6f},{lon_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f}" for i in range(25)])
                 api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=17&markers=color:red%7C{lat},{lon}&path=color:0xFF0000|weight:2{c40}&path=color:0x0000FF|weight:2{c80}&key={MAPS_KEY}"
+                print(f"DEBUG: URL creada correctamente: {api_map_url}") # ESTA LÍNEA ES PARA VERIFICAR
                 nuevo_embed.set_image(url=api_map_url)
+            else:
+                print("DEBUG: No se encontraron coordenadas en el mensaje.") # ESTA LÍNEA ES PARA VERIFICAR
 
             canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
             if canal_destino:
