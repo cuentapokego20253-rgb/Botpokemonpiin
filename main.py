@@ -4,7 +4,7 @@ from discord.ext import commands
 from flask import Flask
 from threading import Thread
 
-app = Flask(_name_)
+app = Flask(__name__)
 @app.route('/')
 def home():
     return "Bot activo"
