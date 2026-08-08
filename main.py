@@ -52,7 +52,9 @@ async def on_message(message):
             
             if coords:
                 lat, lon = coords.groups()
-                api_map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=15&size=600x300&markers=color:red%7C{lat},{lon}&path=color:0x0000ffFF%7Cfillcolor:0x0000ff33%7Ccircle:{lat},{lon}%7Cr:40&path=color:0xff0000FF%7Cfillcolor:0xff000033%7Ccircle:{lat},{lon}%7Cr:80&key={MAPS_KEY}"
+                c40 = "".join([f"|{lat_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f},{lon_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.cos(i*math.pi/12):.6f}" for i in range(25)])
+                c80 = "".join([f"|{lat_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f},{lon_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.cos(i*math.pi/12):.6f}" for i in range(25)])
+                map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=17&size=600x300&markers=color:red%7C{lat},{lon}&path=color:0xFF0000|weight:2{c40}&path=color:0x0000FF|weight:2{c80}&key={MAPS_KEY}"
                 nuevo_embed.set_image(url=api_map_url)
             
             canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
