@@ -59,39 +59,48 @@ async def on_message(message):
     if not message.embeds:
         return
 
-    # Protección contra caídas inesperadas
+    # Protección total contra cualquier error inesperado
     try:
         for embed in message.embeds:
             nuevo_embed = embed.copy()
             embed_texto = str(embed.to_dict())
 
-            # Extraer coordenadas desde el enlace de Google Maps en PoryPro
+            # Inicializar variables de coordenadas de forma segura
+            lat_f = None
+            lon_f = None
+
+            # Búsqueda ultra segura de coordenadas en el embed
             coords_match = re.search(r'q=(-?\d+\.\d+)(?:%2C|,)\s*(-?\d+\.\d+)', embed_texto)
             if not coords_match:
-                # Búsqueda secundaria por patrón de latitud y longitud directo
                 coords_match = re.search(r'(-?\d{1,2}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})', embed_texto)
 
             if coords_match:
-                lat_f = float(coords_match.group(1))
-                lon_f = float(coords_match.group(2))
+                try:
+                    lat_f = float(coords_match.group(1))
+                    lon_f = float(coords_match.group(2))
+                except Exception:
+                    pass
 
-                # Cálculo de puntos para el círculo de 40 metros (Radio Avatar)
-                c40 = "".join([f"%7C{lat_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f},{lon_f + (40/111320.0)*math.cos(i*math.pi/12):.6f}" for i in range(25)])
-                
-                # Cálculo de puntos para el círculo de 80 metros (Radio Parque corregido)
-                c80 = "".join([f"%7C{lat_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f},{lon_f + (80/111320.0)*math.cos(i*math.pi/12):.6f}" for i in range(25)])
+            # Si se obtuvieron coordenadas válidas, generar el mapa estático con los dos círculos
+            if lat_f is not None and lon_f is not None:
+                try:
+                    # Cálculo de puntos para el círculo de 40 metros (Radio Avatar)
+                    c40 = "".join([f"%7C{lat_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f},{lon_f + (40/111320.0)*math.cos(i*math.pi/12):.6f}" for i in range(25)])
+                    
+                    # Cálculo de puntos para el círculo de 80 metros (Radio Parque)
+                    c80 = "".join([f"%7C{lat_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f},{lon_f + (80/111320.0)*math.cos(i*math.pi/12):.6f}" for i in range(25)])
 
-                # Construcción del mapa estático de Google con el marcador rojo y los dos círculos (40m y 80m)
-                map_url = (
-                    f"https://maps.googleapis.com/maps/api/staticmap?"
-                    f"center={lat_f},{lon_f}&zoom=17&size=600x300"
-                    f"&markers=color:red%7C{lat_f},{lon_f}"
-                    f"&path=color:0x0000FF%7Cweight:2{c40}"
-                    f"&path=color:0x800080%7Cweight:2{c80}"
-                    f"&key={MAPS_KEY}"
-                )
-
-                nuevo_embed.set_image(url=map_url)
+                    map_url = (
+                        f"https://maps.googleapis.com/maps/api/staticmap?"
+                        f"center={lat_f},{lon_f}&zoom=17&size=600x300"
+                        f"&markers=color:red%7C{lat_f},{lon_f}"
+                        f"&path=color:0x0000FF%7Cweight:2{c40}"
+                        f"&path=color:0x800080%7Cweight:2{c80}"
+                        f"&key={MAPS_KEY}"
+                    )
+                    nuevo_embed.set_image(url=map_url)
+                except Exception as map_err:
+                    print(f"Error generando el mapa: {map_err}")
 
             # Reenviar el mensaje enriquecido al canal duplicado
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
@@ -100,7 +109,7 @@ async def on_message(message):
                 await canal_destino.send(embed=nuevo_embed)
 
     except Exception as e:
-        print(f"Error procesando el mensaje: {e}")
+        print(f"Error general procesando el mensaje: {e}")
 
 # Iniciar servidor web y conectar el bot a Discord
 keep_alive()
