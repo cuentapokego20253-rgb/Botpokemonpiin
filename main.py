@@ -7,7 +7,7 @@ from flask import Flask
 from threading import Thread
 
 # Servidor Flask para mantener vivo el proceso en Render
-app = Flask(_name_)
+app = Flask(__name__)
 
 @app.route('/')
 def home():
