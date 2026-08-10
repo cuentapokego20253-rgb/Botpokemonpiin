@@ -7,7 +7,7 @@ from flask import Flask
 from threading import Thread
 
 # Servidor Flask para mantener vivo el proceso en Render
-app = Flask(__name__)
+app = Flask(_name_)
 
 @app.route('/')
 def home():
@@ -28,7 +28,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales: { ID_CANAL_ORIGINAL_PORYPRO : ID_CANAL_DUPLICADO_DESTINO }
+# Mapeo de Canales
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -40,6 +40,21 @@ CANALES_ESPEJO = {
 }
 
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
+
+# FUNCIÓN PARA HACER LOS CÍRCULOS PERFECTOS (Fuera y ordenada)
+def hacer_circulo_perfecto(lat, lon, radio_metros):
+    R = 6378137.0
+    cx = math.radians(lon) * R
+    cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
+    pts = []
+    for a in range(0, 361, 10):
+        rad = math.radians(a)
+        x = cx + radio_metros * math.cos(rad)
+        y = cy + radio_metros * math.sin(rad)
+        lon_i = math.degrees(x / R)
+        lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2.0)
+        pts.append(f"%7C{lat_i:.6f},{lon_i:.6f}")
+    return "".join(pts)
 
 @bot.event
 async def on_ready():
@@ -72,7 +87,7 @@ async def on_message(message):
             # Búsqueda ultra segura de coordenadas en el embed
             coords_match = re.search(r'q=(-?\d+\.\d+)(?:%2C|,)\s*(-?\d+\.\d+)', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'(-?\d{1,2}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})', embed_texto)
+                coords_match = re.search(r'q=(-?\d{1,2}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})', embed_texto)
 
             if coords_match:
                 try:
@@ -81,25 +96,12 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            def hacer_circulo_perfecto(lat, lon, radio_metros):
-              R = 6378137.0
-              cx = math.radians(lon) * R
-              cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
-              pts = []
-              for a in range(0, 361, 10):
-                rad = math.radians(a)
-                x = cx + radio_metros * math.cos(rad)
-                y = cy + radio_metros * math.sin(rad)
-                lon_i = math.degrees(x / R)
-                lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2.0)
-                pts.append(f"%7C{lat_i:.6f},{lon_i:.6f}")
-            return "".join(pts)
-            # Si se obtuvieron coordenadas válidas, generar el mapa estático con los dos círculos
+            # Si se obtuvieron coordenadas válidas, generar el mapa estático
             if lat_f is not None and lon_f is not None:
                 try:
                     # Cálculo de puntos para el círculo de 40 metros (Radio Avatar)
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
-                    
+
                     # Cálculo de puntos para el círculo de 80 metros (Radio Parque)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
