@@ -41,7 +41,7 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
-# FUNCIÓN PARA HACER LOS CÍRCULOS PERFECTOS
+# FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
@@ -62,33 +62,30 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    # 1. Ignorar mensajes enviados por el propio bot
+    # 1. Ignorar mensajes propios
     if message.author == bot.user:
         return
 
-    # 2. Verificar si el mensaje viene de un canal mapeado
+    # 2. Verificar canal mapeado
     if message.channel.id not in CANALES_ESPEJO:
         return
 
-    # 3. Validar que contenga Embeds
+    # 3. Validar embeds
     if not message.embeds:
         return
 
-    # Protección total contra cualquier error inesperado
     try:
         for embed in message.embeds:
             nuevo_embed = embed.copy()
-            # Normalizamos el texto del embed reemplazando %2C por comas para compatibilidad universal
-            embed_texto = str(embed.to_dict()).replace('%2C', ',')
+            embed_texto = str(embed.to_dict())
 
-            # Inicializar variables de coordenadas de forma segura
             lat_f = None
             lon_f = None
 
-            # Búsqueda ultra flexible de coordenadas (soporta cualquier cantidad de decimales)
-            coords_match = re.search(r'(?:q|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)', embed_texto)
+            # Búsqueda original exacta basada en 'q=' que SÍ funcionaba en Poke Raro
+            coords_match = re.search(r'q=(-?\d+\.\d+)(?:%2C|,)\s*(-?\d+\.\d+)', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)', embed_texto)
+                coords_match = re.search(r'q=(-?\d{1,2}\.\d+)(?:%2C|,)\s*(-?\d{1,3}\.\d+)', embed_texto)
 
             if coords_match:
                 try:
@@ -97,13 +94,10 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            # Si se obtuvieron coordenadas válidas, generar el mapa estático
+            # Generar el mapa con círculos redondos si hay coordenadas válidas
             if lat_f is not None and lon_f is not None:
                 try:
-                    # Círculo de 40 metros (Radio Avatar)
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
-                    
-                    # Círculo de 80 metros (Radio Parque)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
                     map_url = (
@@ -118,7 +112,7 @@ async def on_message(message):
                 except Exception as map_err:
                     print(f"Error generando el mapa: {map_err}")
 
-            # Reenviar el mensaje enriquecido al canal duplicado correspondiente
+            # Reenviar al canal duplicado
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
             if canal_destino:
@@ -127,6 +121,6 @@ async def on_message(message):
     except Exception as e:
         print(f"Error general procesando el mensaje: {e}")
 
-# Iniciar servidor web y conectar el bot a Discord
+# Iniciar servidor y bot
 keep_alive()
 bot.run(os.environ['DISCORD_TOKEN'])
