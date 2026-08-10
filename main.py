@@ -7,7 +7,7 @@ from flask import Flask
 from threading import Thread
 
 # Servidor Flask para mantener vivo el proceso en Render
-app = Flask(__name__)
+app = Flask(_name_)
 
 @app.route('/')
 def home():
@@ -28,7 +28,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales
+# Mapeo de Canales (Tus 7 canales configurados)
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -41,7 +41,7 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
-# FUNCIÓN PARA HACER LOS CÍRCULOS PERFECTOS (Fuera y ordenada)
+# FUNCIÓN PARA HACER LOS CÍRCULOS PERFECTOS
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
@@ -78,16 +78,17 @@ async def on_message(message):
     try:
         for embed in message.embeds:
             nuevo_embed = embed.copy()
-            embed_texto = str(embed.to_dict())
+            # Normalizamos el texto del embed reemplazando %2C por comas para compatibilidad universal
+            embed_texto = str(embed.to_dict()).replace('%2C', ',')
 
             # Inicializar variables de coordenadas de forma segura
             lat_f = None
             lon_f = None
 
-            # Búsqueda ultra segura de coordenadas en el embed
-            coords_match = re.search(r'q=(-?\d+\.\d+)(?:%2C|,)\s*(-?\d+\.\d+)', embed_texto)
+            # Búsqueda ultra flexible de coordenadas (soporta cualquier cantidad de decimales)
+            coords_match = re.search(r'(?:q|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'q=(-?\d{1,2}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})', embed_texto)
+                coords_match = re.search(r'(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)', embed_texto)
 
             if coords_match:
                 try:
@@ -99,10 +100,10 @@ async def on_message(message):
             # Si se obtuvieron coordenadas válidas, generar el mapa estático
             if lat_f is not None and lon_f is not None:
                 try:
-                    # Cálculo de puntos para el círculo de 40 metros (Radio Avatar)
+                    # Círculo de 40 metros (Radio Avatar)
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
-
-                    # Cálculo de puntos para el círculo de 80 metros (Radio Parque)
+                    
+                    # Círculo de 80 metros (Radio Parque)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
                     map_url = (
@@ -117,7 +118,7 @@ async def on_message(message):
                 except Exception as map_err:
                     print(f"Error generando el mapa: {map_err}")
 
-            # Reenviar el mensaje enriquecido al canal duplicado
+            # Reenviar el mensaje enriquecido al canal duplicado correspondiente
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
             if canal_destino:
