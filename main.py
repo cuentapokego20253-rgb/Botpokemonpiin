@@ -94,8 +94,8 @@ async def on_message(message):
                         f"https://maps.googleapis.com/maps/api/staticmap?"
                         f"center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2"
                         f"&markers=color:red%7C{lat_f},{lon_f}"
-                        f"&path=color:0x0000FF%7Cweight:2{c40}"
-                        f"&path=color:0x800080%7Cweight:2{c80}"
+                        f"&path=color:0xFF0000%7Cweight:2{c40}"
+                        f"&path=color:0x0000FF%7Cweight:2{c80}"
                         f"&key={MAPS_KEY}"
                     )
                     nuevo_embed.set_image(url=map_url)
