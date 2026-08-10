@@ -81,14 +81,27 @@ async def on_message(message):
                 except Exception:
                     pass
 
+            def hacer_circulo_perfecto(lat, lon, radio_metros):
+              R = 6378137.0
+              cx = math.radians(lon) * R
+              cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
+              pts = []
+              for a in range(0, 361, 10):
+                rad = math.radians(a)
+                x = cx + radio_metros * math.cos(rad)
+                y = cy + radio_metros * math.sin(rad)
+                lon_i = math.degrees(x / R)
+                lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2.0)
+                pts.append(f"%7C{lat_i:.6f},{lon_i:.6f}")
+            return "".join(pts)
             # Si se obtuvieron coordenadas válidas, generar el mapa estático con los dos círculos
             if lat_f is not None and lon_f is not None:
                 try:
                     # Cálculo de puntos para el círculo de 40 metros (Radio Avatar)
-                    c40 = "".join([f"%7C{lat_f + (40/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f},{lon_f + (40/111320.0)*math.cos(i*math.pi/12):.6f}" for i in range(25)])
+                    c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                     
                     # Cálculo de puntos para el círculo de 80 metros (Radio Parque)
-                    c80 = "".join([f"%7C{lat_f + (80/(111320.0*math.cos(lat_f*math.pi/180)))*math.sin(i*math.pi/12):.6f},{lon_f + (80/111320.0)*math.cos(i*math.pi/12):.6f}" for i in range(25)])
+                    c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
                     map_url = (
                         f"https://maps.googleapis.com/maps/api/staticmap?"
