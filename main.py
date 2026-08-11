@@ -46,7 +46,7 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
     cx = math.radians(lon) * R
     cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
     pts = []
-    for a in range(0, 361, 10):
+    for a in range(0, 361, 15):
         rad = math.radians(a)
         x = cx + radio_metros * math.cos(rad)
         y = cy + radio_metros * math.sin(rad)
