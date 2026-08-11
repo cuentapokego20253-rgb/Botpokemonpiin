@@ -38,7 +38,6 @@ CANALES_ESPEJO = {
     1522711485586079895: 1525184002011431082,
     1522728127565140008: 1525183874852978728
 }
-
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
@@ -62,30 +61,30 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    # 1. Ignorar mensajes propios
+    # 1. Ignorar mensajes propios del bot
     if message.author == bot.user:
         return
 
-    # 2. Verificar canal mapeado
+    # 2. Verificar si el canal está en el mapeo
     if message.channel.id not in CANALES_ESPEJO:
         return
 
-    # 3. Validar embeds
+    # 3. Validar que contenga Embeds
     if not message.embeds:
         return
 
     try:
         for embed in message.embeds:
             nuevo_embed = embed.copy()
-            embed_texto = str(embed.to_dict())
+            embed_texto = str(embed.to_dict()).replace('%2C', ',')
 
             lat_f = None
             lon_f = None
 
-            # Búsqueda original exacta basada en 'q=' que SÍ funcionaba en Poke Raro
-            coords_match = re.search(r'q=(-?\d+\.\d+)(?:%2C|,)\s*(-?\d+\.\d+)', embed_texto)
+            # Búsqueda universal de coordenadas en cualquier formato
+            coords_match = re.search(r'(?:q|center|query|loc|ll)=?(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'q=(-?\d{1,2}\.\d+)(?:%2C|,)\s*(-?\d{1,3}\.\d+)', embed_texto)
+                coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
 
             if coords_match:
                 try:
@@ -94,7 +93,7 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            # Generar el mapa con círculos redondos si hay coordenadas válidas
+            # Generar el mapa estático si existen coordenadas
             if lat_f is not None and lon_f is not None:
                 try:
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
@@ -110,17 +109,25 @@ async def on_message(message):
                     )
                     nuevo_embed.set_image(url=map_url)
                 except Exception as map_err:
-                    print(f"Error generando el mapa: {map_err}")
+                    print(f"Error generando mapa: {map_err}")
 
-            # Reenviar al canal duplicado
+            # Obtención ultra segura del canal destino
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
+            
+            if not canal_destino:
+                try:
+                    canal_destino = await bot.fetch_channel(canal_destino_id)
+                except Exception as fetch_err:
+                    print(f"Error obteniendo canal {canal_destino_id}: {fetch_err}")
+
+            # Reenviar el mensaje al canal duplicado
             if canal_destino:
                 await canal_destino.send(embed=nuevo_embed)
 
     except Exception as e:
-        print(f"Error general procesando el mensaje: {e}")
+        print(f"Error general procesando mensaje: {e}")
 
-# Iniciar servidor y bot
+# Iniciar servidor web y conectar el bot a Discord
 keep_alive()
 bot.run(os.environ['DISCORD_TOKEN'])
