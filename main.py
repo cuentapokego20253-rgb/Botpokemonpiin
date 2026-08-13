@@ -36,7 +36,7 @@ intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # ==========================================
-# MAPEO DE CANALES (Tus canales configurados)
+# MAPEO DE CANALES
 # ==========================================
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
@@ -48,7 +48,6 @@ CANALES_ESPEJO = {
     1522728127565140008: 1525183874852978728
 }
 
-# Los 5 canales originales para las Alertas Inteligentes de Clima
 CANALES_CON_IVS = {
     1522694582171599011,
     1522694783280349345,
@@ -59,7 +58,7 @@ CANALES_CON_IVS = {
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # ==========================================
-# TRADUCTOR OFICIAL POKÉMON GO (FILTRO DE LOS 7 CLIMAS)
+# TRADUCTOR OFICIAL POKÉMON GO
 # ==========================================
 def traducir_clima_pogo(main_weather, description=""):
     main_lower = main_weather.lower()
@@ -82,40 +81,42 @@ def traducir_clima_pogo(main_weather, description=""):
         return "Soleado / Despejado ☀️"
 
 # ==========================================
-# MOTOR DE ALERTA INTELIGENTE (EN SEGUNDO PLANO)
+# MOTOR DE ALERTA INTELIGENTE BLINDADO
 # ==========================================
 active_pokemon_cache = {}
 last_checked_minute = datetime.now().minute
 
-async def fetch_weather_for_cell(lat, lon, max_retries=3):
+async def fetch_weather_for_cell(lat, lon):
     api_key = os.getenv("WHEATER_API_KEY") or os.getenv("WEATHER_API_KEY")
     if not api_key:
         return None
 
     api_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
-    timeout = aiohttp.ClientTimeout(total=4)
+    timeout = aiohttp.ClientTimeout(total=3)
     
-    for attempt in range(1, max_retries + 1):
-        try:
-            connector = aiohttp.TCPConnector(force_close=True)
-            async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-                async with session.get(api_url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        weather_list = data.get('weather', [])
-                        if weather_list and len(weather_list) > 0:
-                            main_w = weather_list[0].get('main', 'Clear')
-                            desc_w = weather_list[0].get('description', '')
-                            return traducir_clima_pogo(main_w, desc_w)
-        except Exception:
-            await asyncio.sleep(1)
+    try:
+        connector = aiohttp.TCPConnector(force_close=True)
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+            async with session.get(api_url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    weather_list = data.get('weather', [])
+                    if weather_list:
+                        main_w = weather_list[0].get('main', 'Clear')
+                        desc_w = weather_list[0].get('description', '')
+                        return traducir_clima_pogo(main_w, desc_w)
+    except Exception:
+        pass
             
     return None
 
 async def fetch_initial_weather_bg(msg_id, lat, lon):
-    weather = await fetch_weather_for_cell(lat, lon)
-    if msg_id in active_pokemon_cache and weather:
-        active_pokemon_cache[msg_id]["initial_weather"] = weather
+    try:
+        weather = await fetch_weather_for_cell(lat, lon)
+        if msg_id in active_pokemon_cache and weather:
+            active_pokemon_cache[msg_id]["initial_weather"] = weather
+    except Exception:
+        pass
 
 async def smart_weather_watcher_loop(bot):
     global last_checked_minute
@@ -131,35 +132,38 @@ async def smart_weather_watcher_loop(bot):
             await asyncio.sleep(10)
 
 async def evaluate_active_pokemon_weather(bot):
-    current_time = datetime.now().timestamp()
-    expired_keys = [msg_id for msg_id, data in active_pokemon_cache.items() if data["expires_at"] < current_time]
-    for key in expired_keys:
-        active_pokemon_cache.pop(key, None)
+    try:
+        current_time = datetime.now().timestamp()
+        expired_keys = [msg_id for msg_id, data in active_pokemon_cache.items() if data["expires_at"] < current_time]
+        for key in expired_keys:
+            active_pokemon_cache.pop(key, None)
 
-    for msg_id, data in list(active_pokemon_cache.items()):
-        new_weather = await fetch_weather_for_cell(data["lat"], data["lon"])
-        if not new_weather:
-            continue
+        for msg_id, data in list(active_pokemon_cache.items()):
+            new_weather = await fetch_weather_for_cell(data["lat"], data["lon"])
+            if not new_weather:
+                continue
 
-        if data["initial_weather"] == "Pending":
-            data["initial_weather"] = new_weather
-        elif new_weather != data["initial_weather"]:
-            channel = bot.get_channel(data["destination_id"])
-            jump_link = data.get("jump_url", "https://discord.com")
-            if channel:
-                try:
-                    await channel.send(
-                        f"⚠️ *¡Alerta Meteorológica Piin!*\n"
-                        f"El clima en la celda de [ESTE POKÉMON ACTIVO]({jump_link}) acaba de cambiar Wn Cagamos\n"
-                        f"de {data['initial_weather']} a {new_weather}.\n"
-                        f"(Los IVs y el nivel de este ejemplar han variado por variación climática)"
-                    )
-                except Exception:
-                    pass
-            data["initial_weather"] = new_weather
+            if data["initial_weather"] == "Pending":
+                data["initial_weather"] = new_weather
+            elif new_weather != data["initial_weather"]:
+                channel = bot.get_channel(data["destination_id"])
+                jump_link = data.get("jump_url", "https://discord.com")
+                if channel:
+                    try:
+                        await channel.send(
+                            f"⚠️ *¡Alerta Meteorológica Piin!*\n"
+                            f"El clima en la celda de [ESTE POKÉMON ACTIVO]({jump_link}) acaba de cambiar Wn Cagamos\n"
+                            f"de {data['initial_weather']} a {new_weather}.\n"
+                            f"(Los IVs y el nivel de este ejemplar han variado por variación climática)"
+                        )
+                    except Exception:
+                        pass
+                data["initial_weather"] = new_weather
+    except Exception:
+        pass
 
 # ==========================================
-# FUNCIÓN DE CÍRCULOS CORREGIDA (SIN DOBLE PIPE %7C%7C)
+# FUNCIÓN DE CÍRCULOS
 # ==========================================
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
@@ -176,7 +180,7 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
     return "%7C".join(pts)
 
 # ==========================================
-# COMANDO DE AUDITORÍA DE CLIMA POKÉMON GO
+# COMANDOS Y EVENTOS
 # ==========================================
 @bot.command(name="test_clima")
 async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
@@ -186,9 +190,6 @@ async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
     else:
         await ctx.send("🔴 Auditoría Fallida: Error de conexión o API key inválida.")
 
-# ==========================================
-# EVENTOS DEL BOT
-# ==========================================
 @bot.event
 async def on_ready():
     print(f'Bot iniciado con éxito como {bot.user}')
