@@ -10,7 +10,7 @@ from flask import Flask
 from threading import Thread
 
 # ==================================================
-# SERVIDOR FLASK PARA MANTENER VIVO EL PROCESO EN RENDER
+# SERVIDOR FLASK CON PUERTO DINÁMICO DE RENDER
 # ==================================================
 app = Flask(__name__)
 
@@ -19,7 +19,9 @@ def home():
     return "Bot activo y funcionando"
 
 def run():
-    app.run(host='0.0.0.0', port=8080)
+    # Lee el puerto que asigna Render automáticamente (o usa 8080 localmente)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run)
@@ -55,7 +57,6 @@ CANALES_CON_IVS = {
     1522695765301133312,
     1522695933031219491
 }
-
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # ==================================================
@@ -97,20 +98,24 @@ async def fetch_weather_for_cell(lat, lon, max_retries=3):
 
     api_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
     timeout = aiohttp.ClientTimeout(total=4)
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
     for attempt in range(1, max_retries + 1):
         try:
             connector = aiohttp.TCPConnector(force_close=True)
             async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-                async with session.get(api_url) as response:
+                async with session.get(api_url, headers=headers) as response:
                     if response.status == 200:
-                        data = await response.json()
-                        weather_list = data.get('weather', [])
-                        if weather_list and len(weather_list) > 0:
-                            main_w = weather_list[0].get('main', 'Clear')
-                            desc_w = weather_list[0].get('description', '')
-                            return traducir_clima_pogo(main_w, desc_w)
-                        return "Soleado / Despejado ☀️"
+                        try:
+                            data = await response.json()
+                            weather_list = data.get('weather', [])
+                            if weather_list and len(weather_list) > 0:
+                                main_w = weather_list[0].get('main', 'Clear')
+                                desc_w = weather_list[0].get('description', '')
+                                return traducir_clima_pogo(main_w, desc_w)
+                            return "Soleado / Despejado ☀️"
+                        except Exception:
+                            pass
         except Exception:
             pass
         await asyncio.sleep(1)
@@ -127,7 +132,6 @@ async def fetch_initial_weather_bg(msg_id, lat, lon):
 async def evaluate_active_pokemon_weather(bot):
     current_time = datetime.now().timestamp()
     
-    # 1. Corrección de Caché: Purgar elementos expirados de forma efectiva
     expired_keys = [msg_id for msg_id, data in active_pokemon_cache.items() if data.get("expires_at", 0) < current_time]
     for key in expired_keys:
         active_pokemon_cache.pop(key, None)
@@ -165,7 +169,6 @@ async def smart_weather_watcher_loop(bot):
             now = datetime.now()
             current_minute = now.minute
             
-            # 2. Corrección del Bucle de Tiempo: Evalúa cada vez que cambie realmente el minuto
             if current_minute != last_checked_minute:
                 await evaluate_active_pokemon_weather(bot)
                 last_checked_minute = current_minute
