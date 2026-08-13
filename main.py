@@ -36,7 +36,7 @@ intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # ==========================================
-# MAPEO DE CANALES
+# MAPEO DE CANALES (Tus canales configurados)
 # ==========================================
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
@@ -48,6 +48,7 @@ CANALES_ESPEJO = {
     1522728127565140008: 1525183874852978728
 }
 
+# Los 5 canales originales para las Alertas Inteligentes de Clima
 CANALES_CON_IVS = {
     1522694582171599011,
     1522694783280349345,
@@ -58,12 +59,12 @@ CANALES_CON_IVS = {
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # ==========================================
-# 🧠 TRADUCTOR OFICIAL POKÉMON GO (LOS 7 CLIMAS)
+# TRADUCTOR OFICIAL POKÉMON GO (FILTRO DE LOS 7 CLIMAS)
 # ==========================================
 def traducir_clima_pogo(main_weather, description=""):
     main_lower = main_weather.lower()
     desc_lower = description.lower()
-    
+
     if "clear" in main_lower:
         return "Soleado / Despejado ☀️"
     elif "rain" in main_lower or "drizzle" in main_lower or "thunderstorm" in main_lower:
@@ -71,7 +72,7 @@ def traducir_clima_pogo(main_weather, description=""):
     elif "snow" in main_lower:
         return "Nieve ❄️"
     elif "fog" in main_lower or "mist" in main_lower or "haze" in main_lower:
-        return "Niebla 🌁"
+        return "Niebla 🌫️"
     elif "clouds" in main_lower:
         if "few" in desc_lower or "scattered" in desc_lower:
             return "Parcialmente nublado ⛅"
@@ -81,15 +82,15 @@ def traducir_clima_pogo(main_weather, description=""):
         return "Soleado / Despejado ☀️"
 
 # ==========================================
-# 🧠 MOTOR DE CLIMA SILENCIOSO Y ANTIBLOQUEO
+# MOTOR DE ALERTA INTELIGENTE (EN SEGUNDO PLANO)
 # ==========================================
 active_pokemon_cache = {}
 last_checked_minute = datetime.now().minute
 
-async def fetch_weather_for_cell(lat, lon, max_retries=2):
+async def fetch_weather_for_cell(lat, lon, max_retries=3):
     api_key = os.getenv("WHEATER_API_KEY") or os.getenv("WEATHER_API_KEY")
     if not api_key:
-        return "Nublado ☁️"
+        return None
 
     api_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
     timeout = aiohttp.ClientTimeout(total=4)
@@ -99,19 +100,22 @@ async def fetch_weather_for_cell(lat, lon, max_retries=2):
             connector = aiohttp.TCPConnector(force_close=True)
             async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 async with session.get(api_url) as response:
-                    content_type = response.headers.get('Content-Type', '')
-                    if response.status == 200 and 'application/json' in content_type:
+                    if response.status == 200:
                         data = await response.json()
                         weather_list = data.get('weather', [])
                         if weather_list and len(weather_list) > 0:
                             main_w = weather_list[0].get('main', 'Clear')
                             desc_w = weather_list[0].get('description', '')
                             return traducir_clima_pogo(main_w, desc_w)
-                    return "Nublado ☁️"
         except Exception:
-            pass
-        await asyncio.sleep(1)
-    return "Nublado ☁️"
+            await asyncio.sleep(1)
+            
+    return None
+
+async def fetch_initial_weather_bg(msg_id, lat, lon):
+    weather = await fetch_weather_for_cell(lat, lon)
+    if msg_id in active_pokemon_cache and weather:
+        active_pokemon_cache[msg_id]["initial_weather"] = weather
 
 async def smart_weather_watcher_loop(bot):
     global last_checked_minute
@@ -120,9 +124,9 @@ async def smart_weather_watcher_loop(bot):
             await asyncio.sleep(30)
             now = datetime.now()
             current_minute = now.minute
-            if current_minute < last_checked_minute:
+            if current_minute != last_checked_minute:
                 await evaluate_active_pokemon_weather(bot)
-            last_checked_minute = current_minute
+                last_checked_minute = current_minute
         except Exception:
             await asyncio.sleep(10)
 
@@ -131,29 +135,31 @@ async def evaluate_active_pokemon_weather(bot):
     expired_keys = [msg_id for msg_id, data in active_pokemon_cache.items() if data["expires_at"] < current_time]
     for key in expired_keys:
         active_pokemon_cache.pop(key, None)
-        
+
     for msg_id, data in list(active_pokemon_cache.items()):
         new_weather = await fetch_weather_for_cell(data["lat"], data["lon"])
-        if not new_weather: 
-            continue 
-            
-        if new_weather != data["initial_weather"]:
+        if not new_weather:
+            continue
+
+        if data["initial_weather"] == "Pending":
+            data["initial_weather"] = new_weather
+        elif new_weather != data["initial_weather"]:
             channel = bot.get_channel(data["destination_id"])
             jump_link = data.get("jump_url", "https://discord.com")
             if channel:
                 try:
                     await channel.send(
                         f"⚠️ *¡Alerta Meteorológica Piin!*\n"
-                        f"El clima en la celda de *[ESTE POKÉMON ACTIVO]({jump_link})* acaba de cambiar Wn "
-                        f"de *{data['initial_weather']}* a *{new_weather}*.\n"
+                        f"El clima en la celda de [ESTE POKÉMON ACTIVO]({jump_link}) acaba de cambiar Wn Cagamos\n"
+                        f"de {data['initial_weather']} a {new_weather}.\n"
                         f"(Los IVs y el nivel de este ejemplar han variado por variación climática)"
                     )
-                except Exception: 
+                except Exception:
                     pass
             data["initial_weather"] = new_weather
 
 # ==========================================
-# 🎯 FUNCIÓN DE CÍRCULOS (MAPAS)
+# FUNCIÓN DE CÍRCULOS CORREGIDA (SIN DOBLE PIPE %7C%7C)
 # ==========================================
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
@@ -170,18 +176,18 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
     return "%7C".join(pts)
 
 # ==========================================
-# COMANDO DE AUDITORÍA DE CLIMA
+# COMANDO DE AUDITORÍA DE CLIMA POKÉMON GO
 # ==========================================
 @bot.command(name="test_clima")
 async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
     resultado = await fetch_weather_for_cell(lat, lon)
     if resultado:
-        await ctx.send(f"🟢 *Auditoría Pokémon Go OK:* Clima actual en la celda Piin: {resultado}")
+        await ctx.send(f"🟢 Auditoria Pokémon GO OK: Clima actual en la celda Piin: {resultado}")
     else:
-        await ctx.send("🔴 *Auditoría Fallida:* Error de conexión.")
+        await ctx.send("🔴 Auditoría Fallida: Error de conexión o API key inválida.")
 
 # ==========================================
-# EVENTOS DEL BOT (MAMPARO ESTANCO Y EXTRACCIÓN AGRESIVA)
+# EVENTOS DEL BOT
 # ==========================================
 @bot.event
 async def on_ready():
@@ -207,15 +213,14 @@ async def on_message(message):
     try:
         for embed in message.embeds:
             nuevo_embed = embed.copy()
-            embed_texto = str(embed.to_dict())
+            embed_texto = str(embed.to_dict()).replace('%2C', ',')
 
             lat_f, lon_f = None, None
-
-            # ---------------------------------------------------------
-            # ⚔️ RADAR DE EXTRACCIÓN AGRESIVA ⚔️
-            # ---------------------------------------------------------
-            coords_match = re.search(r'(-?\d{1,2}\.\d{4,})\s*(?:,|%2C)\s*(-?\d{1,3}\.\d{4,})', embed_texto)
             
+            coords_match = re.search(r'(?:q|center|query|loc|11)-(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
+            if not coords_match:
+                coords_match = re.search(r'(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
+
             if coords_match:
                 try:
                     lat_f = float(coords_match.group(1))
@@ -223,9 +228,6 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            # ---------------------------------------------------------
-            # 🛡️ ZONA DE MAPAS (TOTALMENTE AISLADA)
-            # ---------------------------------------------------------
             if lat_f is not None and lon_f is not None:
                 try:
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
@@ -240,27 +242,22 @@ async def on_message(message):
                         f"&key={MAPS_KEY}"
                     )
                     nuevo_embed.set_image(url=map_url)
-                    
+
                     if message.channel.id in CANALES_CON_IVS:
-                        clima_inicial_real = await fetch_weather_for_cell(lat_f, lon_f)
-                        despawn_time = datetime.now().timestamp() + 1200 
+                        despawn_time = datetime.now().timestamp() + 1200
                         active_pokemon_cache[message.id] = {
                             "lat": lat_f,
                             "lon": lon_f,
                             "expires_at": despawn_time,
-                            "initial_weather": clima_inicial_real, 
+                            "initial_weather": "Pending",
                             "destination_id": CANALES_ESPEJO[message.channel.id],
                             "jump_url": ""
                         }
+                        bot.loop.create_task(fetch_initial_weather_bg(message.id, lat_f, lon_f))
 
-                except Exception:
-                    pass
-            else:
-                pass
+                except Exception as map_err:
+                    print(f"Error generando mapa: {map_err}")
 
-            # ---------------------------------------------------------
-            # 🚀 ZONA DE ENVÍO BLINDADA (MAMPARO ESTANCO)
-            # ---------------------------------------------------------
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
 
@@ -275,11 +272,12 @@ async def on_message(message):
                 if message.channel.id in CANALES_CON_IVS and message.id in active_pokemon_cache:
                     active_pokemon_cache[message.id]["jump_url"] = msg_enviado.jump_url
 
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error general procesando mensaje: {e}")
 
 # ==========================================
 # INICIO DE LA APLICACIÓN
 # ==========================================
-keep_alive()
-bot.run(os.environ['DISCORD_TOKEN'])
+if _name_ == "_main_":
+    keep_alive()
+    bot.run(os.environ['DISCORD_TOKEN'])
