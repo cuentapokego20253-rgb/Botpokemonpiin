@@ -4,38 +4,30 @@ import math
 import asyncio
 import aiohttp
 from datetime import datetime
+import threading
+from flask import Flask
+
+# ==================================================
+# CONFIGURACIÓN DE FLASK EN EL HILO PRINCIPAL
+# ==================================================
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot activo y funcionando"
+
+# ==================================================
+# CONFIGURACIÓN DE DISCORD
+# ==================================================
 import discord
 from discord.ext import commands
-from aiohttp import web
 
-# ==================================================
-# SERVIDOR WEB NATIVO AIOHTTP (Reemplaza a Flask para Render)
-# ==================================================
-async def handle_home(request):
-    return web.Response(text="Bot activo y funcionando")
-
-async def start_web_server():
-    app = web.Application()
-    app.router.add_get('/', handle_home)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    port = int(os.environ.get("PORT", 8080))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    print(f"Servidor web corriendo en el puerto {port}")
-
-# ==================================================
-# CONFIGURACIÓN DE INTENCIONES DE DISCORD
-# ==================================================
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# ==================================================
-# MAPEO DE CANALES
-# ==================================================
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -56,9 +48,6 @@ CANALES_CON_IVS = {
 
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
-# ==================================================
-# TRADUCTOR OFICIAL POKÉMON GO
-# ==================================================
 def traducir_clima_pogo(main_weather, description=""):
     if not main_weather:
         return "Soleado / Despejado ☀️"
@@ -82,9 +71,6 @@ def traducir_clima_pogo(main_weather, description=""):
     else:
         return "Soleado / Despejado ☀️"
 
-# ==================================================
-# MOTOR DE ALERTA INTELIGENTE
-# ==================================================
 active_pokemon_cache = {}
 last_checked_minute = datetime.now().minute
 
@@ -198,8 +184,6 @@ async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
 @bot.event
 async def on_ready():
     print(f'Bot iniciado con éxito como {bot.user}')
-    # Inicia el servidor web nativamente en el mismo loop de asyncio de Discord
-    await start_web_server()
     bot.loop.create_task(smart_weather_watcher_loop(bot))
 
 @bot.event
@@ -259,7 +243,7 @@ async def on_message(message):
                             "expires_at": despawn_time,
                             "initial_weather": "Pending",
                             "destination_id": CANALES_ESPEJO[message.channel.id],
-                            "jump_url": ""
+                    "jump_url": ""
                         }
                         bot.loop.create_task(fetch_initial_weather_bg(message.id, lat_f, lon_f))
                 except Exception as map_err:
@@ -283,6 +267,17 @@ async def on_message(message):
         print(f"Error general procesando mensaje: {e}")
 
 # ==================================================
-# INICIO DE LA APLICACIÓN
+# EJECUCIÓN INVIRTIENDO LOS HILOS (Flask Principal)
 # ==================================================
-bot.run(os.environ['DISCORD_TOKEN'])
+def run_discord_bot():
+    bot.run(os.environ['DISCORD_TOKEN'])
+
+if _name_ == "_main_":
+    # Discord corre en segundo plano para dejar el hilo principal libre para Flask
+    discord_thread = threading.Thread(target=run_discord_bot)
+    discord_thread.daemon = True
+    discord_thread.start()
+
+    # Flask toma el hilo principal y abre el puerto instantáneamente para Render
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
