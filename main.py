@@ -6,27 +6,23 @@ import aiohttp
 from datetime import datetime
 import discord
 from discord.ext import commands
-from flask import Flask
-from threading import Thread
+from aiohttp import web
 
 # ==================================================
-# SERVIDOR FLASK CON PUERTO DINÁMICO DE RENDER
+# SERVIDOR WEB NATIVO AIOHTTP (Reemplaza a Flask para Render)
 # ==================================================
-app = Flask(__name__)
+async def handle_home(request):
+    return web.Response(text="Bot activo y funcionando")
 
-@app.route('/')
-def home():
-    return "Bot activo y funcionando"
-
-def run():
-    # Lee el puerto que asigna Render automáticamente (o usa 8080 localmente)
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', handle_home)
+    runner = web.AppRunner(app)
+    await runner.setup()
     port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"Servidor web corriendo en el puerto {port}")
 
 # ==================================================
 # CONFIGURACIÓN DE INTENCIONES DE DISCORD
@@ -38,7 +34,7 @@ intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # ==================================================
-# MAPEO DE CANALES (Tus canales configurados)
+# MAPEO DE CANALES
 # ==================================================
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
@@ -57,10 +53,11 @@ CANALES_CON_IVS = {
     1522695765301133312,
     1522695933031219491
 }
+
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # ==================================================
-# TRADUCTOR OFICIAL POKÉMON GO (FILTRO DE LOS 7 CLIMAS)
+# TRADUCTOR OFICIAL POKÉMON GO
 # ==================================================
 def traducir_clima_pogo(main_weather, description=""):
     if not main_weather:
@@ -86,7 +83,7 @@ def traducir_clima_pogo(main_weather, description=""):
         return "Soleado / Despejado ☀️"
 
 # ==================================================
-# MOTOR DE ALERTA INTELIGENTE (EN SEGUNDO PLANO)
+# MOTOR DE ALERTA INTELIGENTE
 # ==================================================
 active_pokemon_cache = {}
 last_checked_minute = datetime.now().minute
@@ -176,9 +173,6 @@ async def smart_weather_watcher_loop(bot):
             print(f"Error en el bucle principal de clima: {loop_err}")
             await asyncio.sleep(10)
 
-# ==================================================
-# FUNCIÓN DE CÍRCULOS CORREGIDA (SIN DOBLE PIPE %7C%7C)
-# ==================================================
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
@@ -193,9 +187,6 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
         pts.append(f"{lat_i:.6f},{lon_i:.6f}")
     return "%7C".join(pts)
 
-# ==================================================
-# COMANDO DE AUDITORÍA DE CLIMA POKÉMON GO
-# ==================================================
 @bot.command(name="test_clima")
 async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
     resultado = await fetch_weather_for_cell(lat, lon)
@@ -204,12 +195,11 @@ async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
     else:
         await ctx.send("🔴 Auditoría Fallida: Error de conexión o API key inválida.")
 
-# ==================================================
-# EVENTOS DEL BOT
-# ==================================================
 @bot.event
 async def on_ready():
     print(f'Bot iniciado con éxito como {bot.user}')
+    # Inicia el servidor web nativamente en el mismo loop de asyncio de Discord
+    await start_web_server()
     bot.loop.create_task(smart_weather_watcher_loop(bot))
 
 @bot.event
@@ -295,5 +285,4 @@ async def on_message(message):
 # ==================================================
 # INICIO DE LA APLICACIÓN
 # ==================================================
-keep_alive()
 bot.run(os.environ['DISCORD_TOKEN'])
