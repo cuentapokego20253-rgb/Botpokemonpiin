@@ -60,6 +60,29 @@ CANALES_CON_IVS = {
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # ==========================================
+# 🧠 TRADUCTOR OFICIAL POKÉMON GO (FILTRO DE LOS 7 CLIMAS)
+# ==========================================
+def traducir_clima_pogo(main_weather, description=""):
+    main_lower = main_weather.lower()
+    desc_lower = description.lower()
+    
+    if "clear" in main_lower:
+        return "Soleado / Despejado ☀️"
+    elif "rain" in main_lower or "drizzle" in main_lower or "thunderstorm" in main_lower:
+        return "Lluvia 🌧️"
+    elif "snow" in main_lower:
+        return "Nieve ❄️"
+    elif "fog" in main_lower or "mist" in main_lower or "haze" in main_lower:
+        return "Niebla 🌁"
+    elif "clouds" in main_lower:
+        if "few" in desc_lower or "scattered" in desc_lower:
+            return "Parcialmente nublado ⛅"
+        else:
+            return "Nublado ☁️"
+    else:
+        return "Soleado / Despejado ☀️"
+
+# ==========================================
 # 🧠 MOTOR DE ALERTA INTELIGENTE (EN SEGUNDO PLANO)
 # ==========================================
 active_pokemon_cache = {}
@@ -82,8 +105,10 @@ async def fetch_weather_for_cell(lat, lon, max_retries=3):
                         data = await response.json()
                         weather_list = data.get('weather', [])
                         if weather_list and len(weather_list) > 0:
-                            return weather_list[0].get('main')
-                        return None
+                            main_w = weather_list[0].get('main', 'Clear')
+                            desc_w = weather_list[0].get('description', '')
+                            return traducir_clima_pogo(main_w, desc_w)
+                        return "Soleado / Despejado ☀️"
         except Exception:
             pass
         await asyncio.sleep(1)
@@ -126,8 +151,8 @@ async def evaluate_active_pokemon_weather(bot):
             if channel:
                 try:
                     await channel.send(
-                        f"⚠️ *¡Alerta Meteorológica Inteligente!*\n"
-                        f"El clima en la celda de *[ESTE POKÉMON ACTIVO]({jump_link})* acaba de cambiar "
+                        f"⚠️ *¡Alerta Meteorológica Piin!*\n"
+                        f"El clima en la celda de *[ESTE POKÉMON ACTIVO]({jump_link})* acaba de cambiar Wn Cagamos "
                         f"de *{data['initial_weather']}* a *{new_weather}*.\n"
                         f"(Los IVs y el nivel de este ejemplar han variado por variación climática)"
                     )
@@ -136,7 +161,7 @@ async def evaluate_active_pokemon_weather(bot):
             data["initial_weather"] = new_weather
 
 # ==========================================
-# FUNCIÓN PARA HACER LOS CÍRCULOS (TU FÓRMULA EXACTA DEL BLOC DE NOTAS)
+# 🎯 FUNCIÓN DE CÍRCULOS CORREGIDA (SIN DOBLE PIPE %7C%7C)
 # ==========================================
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
@@ -149,17 +174,17 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
         y = cy + radio_metros * math.sin(rad)
         lon_i = math.degrees(x / R)
         lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2.0)
-        pts.append(f"%7C{lat_i:.6f},{lon_i:.6f}")
-    return "".join(pts)
+        pts.append(f"{lat_i:.6f},{lon_i:.6f}")
+    return "%7C".join(pts)
 
 # ==========================================
-# COMANDO DE AUDITORÍA DE CLIMA
+# COMANDO DE AUDITORÍA DE CLIMA POKÉMON GO
 # ==========================================
 @bot.command(name="test_clima")
 async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
     resultado = await fetch_weather_for_cell(lat, lon)
     if resultado:
-        await ctx.send(f"🟢 *Auditoría OK:* Clima actual en la celda: {resultado}")
+        await ctx.send(f"🟢 *Auditoría Pokémon GO OK:* Clima actual en la celda Piin: {resultado}")
     else:
         await ctx.send("🔴 *Auditoría Fallida:* Error de conexión o API key inválida.")
 
@@ -210,7 +235,7 @@ async def on_message(message):
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
-                    # Estructura idéntica a tu bloc de notas blindado
+                    # URL limpia con un solo separador %7C garantizado
                     map_url = (
                         f"https://maps.googleapis.com/maps/api/staticmap?"
                         f"center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2"
