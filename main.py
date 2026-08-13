@@ -279,6 +279,6 @@ async def on_message(message):
 # ==========================================
 # INICIO DE LA APLICACIÓN
 # ==========================================
-if _name_ == "_main_":
+if __name__ == "_main_":
     keep_alive()
     bot.run(os.environ['DISCORD_TOKEN'])
