@@ -81,25 +81,24 @@ def traducir_clima_pogo(main_weather, description=""):
         return "Soleado / Despejado ☀️"
 
 # ==========================================
-# 🧠 MOTOR DE CLIMA Y VIGILANCIA INTELIGENTE (BLINDADO ANTI-CLOUDFLARE)
+# 🧠 MOTOR DE CLIMA SILENCIOSO Y ANTIBLOQUEO
 # ==========================================
 active_pokemon_cache = {}
 last_checked_minute = datetime.now().minute
 
-async def fetch_weather_for_cell(lat, lon, max_retries=3):
+async def fetch_weather_for_cell(lat, lon, max_retries=2):
     api_key = os.getenv("WHEATER_API_KEY") or os.getenv("WEATHER_API_KEY")
     if not api_key:
         return "Nublado ☁️"
 
     api_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
-    timeout = aiohttp.ClientTimeout(total=5)
+    timeout = aiohttp.ClientTimeout(total=4)
     
     for attempt in range(1, max_retries + 1):
         try:
             connector = aiohttp.TCPConnector(force_close=True)
             async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 async with session.get(api_url) as response:
-                    # Verificamos que la respuesta sea JSON real y no HTML de Cloudflare
                     content_type = response.headers.get('Content-Type', '')
                     if response.status == 200 and 'application/json' in content_type:
                         data = await response.json()
@@ -109,8 +108,7 @@ async def fetch_weather_for_cell(lat, lon, max_retries=3):
                             desc_w = weather_list[0].get('description', '')
                             return traducir_clima_pogo(main_w, desc_w)
                     return "Nublado ☁️"
-        except Exception as e:
-            print(f"Aviso menor: Error consultando clima (intento {attempt}): {e}")
+        except Exception:
             pass
         await asyncio.sleep(1)
     return "Nublado ☁️"
@@ -125,8 +123,7 @@ async def smart_weather_watcher_loop(bot):
             if current_minute < last_checked_minute:
                 await evaluate_active_pokemon_weather(bot)
             last_checked_minute = current_minute
-        except Exception as e:
-            print(f"Error en el bucle de vigilancia: {e}")
+        except Exception:
             await asyncio.sleep(10)
 
 async def evaluate_active_pokemon_weather(bot):
@@ -181,7 +178,7 @@ async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
     if resultado:
         await ctx.send(f"🟢 *Auditoría Pokémon Go OK:* Clima actual en la celda Piin: {resultado}")
     else:
-        await ctx.send("🔴 *Auditoría Fallida:* Error de conexión o API key inválida.")
+        await ctx.send("🔴 *Auditoría Fallida:* Error de conexión.")
 
 # ==========================================
 # EVENTOS DEL BOT (MAMPARO ESTANCO Y EXTRACCIÓN AGRESIVA)
@@ -256,10 +253,10 @@ async def on_message(message):
                             "jump_url": ""
                         }
 
-                except Exception as map_err:
-                    print(f"Error generando mapa (pero el bot sigue en pie): {map_err}")
+                except Exception:
+                    pass
             else:
-                print("El radar agresivo no detectó coordenadas, enviando sin mapa.")
+                pass
 
             # ---------------------------------------------------------
             # 🚀 ZONA DE ENVÍO BLINDADA (MAMPARO ESTANCO)
@@ -278,8 +275,8 @@ async def on_message(message):
                 if message.channel.id in CANALES_CON_IVS and message.id in active_pokemon_cache:
                     active_pokemon_cache[message.id]["jump_url"] = msg_enviado.jump_url
 
-    except Exception as e:
-        print(f"Error general crítico interceptado en on_message: {e}")
+    except Exception:
+        pass
 
 # ==========================================
 # INICIO DE LA APLICACIÓN
