@@ -36,10 +36,10 @@ intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # ==========================================
-# MAPEO DE CANALES
+# MAPEO DE CANALES REALES
 # ==========================================
 
-# 1. Los 7 canales espejo (Original -> Destino). Los mapas se envían a todos.
+# 1. Los 7 canales espejo (Original -> Destino)
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -68,11 +68,10 @@ active_pokemon_cache = {}
 last_checked_minute = datetime.now().minute
 
 async def fetch_weather_for_cell(lat, lon, max_retries=3):
-    """Consulta segura a OpenWeatherMap adaptada a tu variable de entorno."""
-    # Busca exactamente WHEATER_API_KEY como la tienes en Render (con respaldo por seguridad)
+    """Consulta segura a OpenWeatherMap adaptada a la variable de entorno de Render."""
     api_key = os.getenv("WHEATER_API_KEY") or os.getenv("WEATHER_API_KEY")
     if not api_key:
-        print("⚠️ [Error Crítico] Variable WHEATER_API_KEY no configurada en Render.")
+        print("⚠️ [Error Crítico] Variable de Clima no configurada en Render.")
         return None
 
     api_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
@@ -129,12 +128,10 @@ async def evaluate_active_pokemon_weather(bot):
     """Evalúa los cambios de clima celda por celda sin alterar diccionarios en curso."""
     current_time = datetime.now().timestamp()
     
-    # 1. Limpieza segura de elementos expirados
     expired_keys = [msg_id for msg_id, data in active_pokemon_cache.items() if data["expires_at"] < current_time]
     for key in expired_keys:
         active_pokemon_cache.pop(key, None)
         
-    # 2. Evaluación aislada de elementos vigentes
     for msg_id, data in list(active_pokemon_cache.items()):
         new_weather = await fetch_weather_for_cell(data["lat"], data["lon"])
         
@@ -178,6 +175,18 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
     return "".join(pts)
 
 # ==========================================
+# COMANDO DE AUDITORÍA
+# ==========================================
+@bot.command(name="test_clima")
+async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
+    """Comando de prueba rápida para verificar conectividad con OpenWeatherMap"""
+    resultado = await fetch_weather_for_cell(lat, lon)
+    if resultado:
+        await ctx.send(f"🟢 *Auditoría Ultra Instinto OK:* Sistema operativo al 1000%. Clima actual en celda: {resultado}")
+    else:
+        await ctx.send("🔴 *Auditoría Fallida:* Error de red o clave de clima errónea en Render.")
+
+# ==========================================
 # EVENTOS DEL BOT
 # ==========================================
 @bot.event
@@ -188,6 +197,12 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
+        return
+
+    # Procesar comandos primero para que !test_clima responda siempre
+    await bot.process_commands(message)
+
+    if message.content.startswith('!'):
         return
 
     if message.channel.id not in CANALES_ESPEJO:
@@ -260,18 +275,6 @@ async def on_message(message):
 
     except Exception as e:
         print(f"Error general procesando mensaje: {e}")
-
-# ==========================================
-# COMANDO DE AUDITORÍA
-# ==========================================
-@bot.command(name="test_clima")
-async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
-    """Comando de prueba rápida para verificar conectividad con OpenWeatherMap"""
-    resultado = await fetch_weather_for_cell(lat, lon)
-    if resultado:
-        await ctx.send(f"🟢 *Auditoría Ultra Instinto OK:* Sistema operativo al 1000%. Clima actual en celda: {resultado}")
-    else:
-        await ctx.send("🔴 *Auditoría Fallida:* Error de red o clave WHEATER_API_KEY errónea en Render.")
 
 # ==========================================
 # INICIO DE LA APLICACIÓN
