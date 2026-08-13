@@ -55,7 +55,6 @@ CANALES_CON_IVS = {
     1522695765301133312,
     1522695933031219491
 }
-
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # ==========================================
@@ -82,7 +81,7 @@ def traducir_clima_pogo(main_weather, description=""):
         return "Soleado / Despejado ☀️"
 
 # ==========================================
-# 🧠 MOTOR DE CLIMA Y VIGILANCIA INTELIGENTE
+# 🧠 MOTOR DE CLIMA Y VIGILANCIA INTELIGENTE (BLINDADO ANTI-CLOUDFLARE)
 # ==========================================
 active_pokemon_cache = {}
 last_checked_minute = datetime.now().minute
@@ -90,28 +89,31 @@ last_checked_minute = datetime.now().minute
 async def fetch_weather_for_cell(lat, lon, max_retries=3):
     api_key = os.getenv("WHEATER_API_KEY") or os.getenv("WEATHER_API_KEY")
     if not api_key:
-        return "Soleado / Despejado ☀️"
+        return "Nublado ☁️"
 
     api_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
-    timeout = aiohttp.ClientTimeout(total=4)
+    timeout = aiohttp.ClientTimeout(total=5)
     
     for attempt in range(1, max_retries + 1):
         try:
             connector = aiohttp.TCPConnector(force_close=True)
             async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 async with session.get(api_url) as response:
-                    if response.status == 200:
+                    # Verificamos que la respuesta sea JSON real y no HTML de Cloudflare
+                    content_type = response.headers.get('Content-Type', '')
+                    if response.status == 200 and 'application/json' in content_type:
                         data = await response.json()
                         weather_list = data.get('weather', [])
                         if weather_list and len(weather_list) > 0:
                             main_w = weather_list[0].get('main', 'Clear')
                             desc_w = weather_list[0].get('description', '')
                             return traducir_clima_pogo(main_w, desc_w)
-                        return "Soleado / Despejado ☀️"
-        except Exception:
+                    return "Nublado ☁️"
+        except Exception as e:
+            print(f"Aviso menor: Error consultando clima (intento {attempt}): {e}")
             pass
         await asyncio.sleep(1)
-    return "Soleado / Despejado ☀️"
+    return "Nublado ☁️"
 
 async def smart_weather_watcher_loop(bot):
     global last_checked_minute
@@ -123,7 +125,8 @@ async def smart_weather_watcher_loop(bot):
             if current_minute < last_checked_minute:
                 await evaluate_active_pokemon_weather(bot)
             last_checked_minute = current_minute
-        except Exception:
+        except Exception as e:
+            print(f"Error en el bucle de vigilancia: {e}")
             await asyncio.sleep(10)
 
 async def evaluate_active_pokemon_weather(bot):
@@ -148,7 +151,7 @@ async def evaluate_active_pokemon_weather(bot):
                         f"de *{data['initial_weather']}* a *{new_weather}*.\n"
                         f"(Los IVs y el nivel de este ejemplar han variado por variación climática)"
                     )
-                except: 
+                except Exception: 
                     pass
             data["initial_weather"] = new_weather
 
@@ -181,7 +184,7 @@ async def test_clima(ctx, lat: float = -33.0472, lon: float = -71.6127):
         await ctx.send("🔴 *Auditoría Fallida:* Error de conexión o API key inválida.")
 
 # ==========================================
-# EVENTOS DEL BOT (BLINDADOS AL 1000%)
+# EVENTOS DEL BOT (MAMPARO ESTANCO Y EXTRACCIÓN AGRESIVA)
 # ==========================================
 @bot.event
 async def on_ready():
@@ -212,8 +215,7 @@ async def on_message(message):
             lat_f, lon_f = None, None
 
             # ---------------------------------------------------------
-            # ⚔️ EL NUEVO RADAR DE EXTRACCIÓN AGRESIVA ⚔️
-            # Busca números de coordenadas independientemente del formato.
+            # ⚔️ RADAR DE EXTRACCIÓN AGRESIVA ⚔️
             # ---------------------------------------------------------
             coords_match = re.search(r'(-?\d{1,2}\.\d{4,})\s*(?:,|%2C)\s*(-?\d{1,3}\.\d{4,})', embed_texto)
             
@@ -255,9 +257,9 @@ async def on_message(message):
                         }
 
                 except Exception as map_err:
-                    print(f"Error generando mapa (pero se enviará el texto): {map_err}")
+                    print(f"Error generando mapa (pero el bot sigue en pie): {map_err}")
             else:
-                print("El radar agresivo no detectó coordenadas en el embed.")
+                print("El radar agresivo no detectó coordenadas, enviando sin mapa.")
 
             # ---------------------------------------------------------
             # 🚀 ZONA DE ENVÍO BLINDADA (MAMPARO ESTANCO)
@@ -277,7 +279,7 @@ async def on_message(message):
                     active_pokemon_cache[message.id]["jump_url"] = msg_enviado.jump_url
 
     except Exception as e:
-        print(f"Error general crítico en on_message: {e}")
+        print(f"Error general crítico interceptado en on_message: {e}")
 
 # ==========================================
 # INICIO DE LA APLICACIÓN
