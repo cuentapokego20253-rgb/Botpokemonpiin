@@ -271,7 +271,7 @@ async def on_message(message):
 # ==========================================
 # INICIO DE LA APLICACIÓN (EL BOT CORRE EN SEGUNDO PLANO Y FLASK TOMA EL PUERTO)
 # ==========================================
-if _name_ == "_main_":
+if __name__ == "_main_":
     def run_bot():
         bot.run(os.environ['DISCORD_TOKEN'])
 
