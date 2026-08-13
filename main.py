@@ -272,7 +272,7 @@ async def on_message(message):
 def run_discord_bot():
     bot.run(os.environ['DISCORD_TOKEN'])
 
-if _name_ == "_main_":
+if __name__ == "_main_":
     # Discord corre en segundo plano para dejar el hilo principal libre para Flask
     discord_thread = threading.Thread(target=run_discord_bot)
     discord_thread.daemon = True
