@@ -19,7 +19,7 @@ def home():
     return "Bot activo y funcionando"
 
 def run():
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
 
 def keep_alive():
     t = Thread(target=run)
@@ -55,6 +55,7 @@ CANALES_CON_IVS = {
     1522695765301133312,
     1522695933031219491
 }
+
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # ==========================================
