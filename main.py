@@ -10,21 +10,13 @@ from flask import Flask
 from threading import Thread
 
 # ==========================================
-# SERVIDOR FLASK PARA MANTENER VIVO EL PROCESO EN RENDER
+# SERVIDOR FLASK (PROCESO PRINCIPAL PARA RENDER)
 # ==========================================
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Bot activo y funcionando"
-
-def run():
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
-
-def keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
 
 # ==========================================
 # CONFIGURACIÓN DE INTENCIONES DE DISCORD
@@ -55,7 +47,6 @@ CANALES_CON_IVS = {
     1522695765301133312,
     1522695933031219491
 }
-
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # ==========================================
@@ -278,8 +269,15 @@ async def on_message(message):
         print(f"Error general procesando mensaje: {e}")
 
 # ==========================================
-# INICIO DE LA APLICACIÓN
+# INICIO DE LA APLICACIÓN (EL BOT CORRE EN SEGUNDO PLANO Y FLASK TOMA EL PUERTO)
 # ==========================================
-if __name__ == "_main_":
-    keep_alive()
-    bot.run(os.environ['DISCORD_TOKEN'])
+if _name_ == "_main_":
+    def run_bot():
+        bot.run(os.environ['DISCORD_TOKEN'])
+
+    discord_thread = Thread(target=run_bot)
+    discord_thread.daemon = True
+    discord_thread.start()
+
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
