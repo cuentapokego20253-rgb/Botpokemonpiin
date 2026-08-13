@@ -12,7 +12,7 @@ from threading import Thread
 # ==========================================
 # SERVIDOR FLASK PARA MANTENER VIVO EL PROCESO EN RENDER
 # ==========================================
-app = Flask(_name_)
+app = Flask(__name__)
 
 @app.route('/')
 def home():
