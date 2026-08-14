@@ -100,7 +100,7 @@ async def forzar_alerta(ctx):
     await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que el Pokémon en caché apareció con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
 
 # ==========================================
-# MOTOR ASÍNCRONO DE MONITOREO (CON ALERTA ENCHULADA)
+# MOTOR ASÍNCRONO DE MONITOREO
 # ==========================================
 async def weather_watcher_loop():
     while True:
@@ -149,8 +149,10 @@ async def on_message(message):
 
     try:
         if not message.embeds: return
-        embed = message.embeds[0].copy()
-        text = str(embed.to_dict())
+        
+        embed = message.embeds[0]
+        embed_dict = embed.to_dict()
+        text = str(embed_dict)
         coords = re.search(r"(-?\d+\.\d+),\s*(-?\d+\.\d+)", text)
         
         nombre_pokemon = "Pokémon"
@@ -163,6 +165,9 @@ async def on_message(message):
             lat, lon = float(coords.group(1)), float(coords.group(2))
             c40 = hacer_circulo_perfecto(lat, lon, 40)
             c80 = hacer_circulo_perfecto(lat, lon, 80)
+            
+            # Reconstrucción segura con tu método original para que el mapa renderice correctamente
+            embed = discord.Embed.from_dict(embed_dict)
             embed.set_image(url=f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=16&size=600x300&markers=color:red%7C{lat},{lon}&path=color:0xFF000037%7Cweight:2%7C{c40}&path=color:0x8E00FF7C%7Cweight:2%7C{c80}&key={MAPS_KEY}")
 
         msg = await bot.get_channel(CANALES_ESPEJO[message.channel.id]).send(embed=embed)
