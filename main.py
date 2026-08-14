@@ -93,7 +93,10 @@ async def forzar_alerta(ctx):
         await ctx.send("❌ No hay ningún Pokémon en la caché ahora mismo. Espera a que uno cruce el umbral horario.")
         return
 
+    # Tomamos el primer Pokémon guardado en la memoria caché
     primer_msg_id = list(active_pokemon_cache.keys())[0]
+    
+    # Le inyectamos un clima FALSO pero VÁLIDO según nuestra función
     clima_falso = "Nieve ❄️" 
     active_pokemon_cache[primer_msg_id]['initial_weather'] = clima_falso
     
@@ -120,13 +123,13 @@ async def weather_watcher_loop():
                             channel = bot.get_channel(data['destination_id'])
                             if channel:
                                 nombre_pkmn = data.get('pokemon_name', 'Pokémon')
-                                mensaje_alerta = (
+                                await channel.send(
                                     f"⚠️ *¡Cambio Meteorológico!*\n"
                                     f"📌 *Pokémon:* {nombre_pkmn}\n"
-                                    f"🔄 *Transición:* {data['initial_weather']} ➔ {new_w}\n"
+                                    f"🔄 *Transición:* [{data['initial_weather']}] ➔ [{new_w}]\n"
+                                    f"Embed: {data['jump_url']}\n"
                                     f"¡Cagaron los IVs, cagamos con el Pokémon CTM! 🫠"
                                 )
-                                await channel.send(mensaje_alerta)
                             data['initial_weather'] = new_w
         except Exception as e:
             print(f"Error en bucle watcher: {e}")
@@ -149,10 +152,8 @@ async def on_message(message):
 
     try:
         if not message.embeds: return
-        
-        embed = message.embeds[0]
-        embed_dict = embed.to_dict()
-        text = str(embed_dict)
+        embed = message.embeds[0].copy()
+        text = str(embed.to_dict())
         coords = re.search(r"(-?\d+\.\d+),\s*(-?\d+\.\d+)", text)
         
         nombre_pokemon = "Pokémon"
@@ -165,9 +166,6 @@ async def on_message(message):
             lat, lon = float(coords.group(1)), float(coords.group(2))
             c40 = hacer_circulo_perfecto(lat, lon, 40)
             c80 = hacer_circulo_perfecto(lat, lon, 80)
-            
-            # Reconstrucción segura con tu método original para que el mapa renderice correctamente
-            embed = discord.Embed.from_dict(embed_dict)
             embed.set_image(url=f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=16&size=600x300&markers=color:red%7C{lat},{lon}&path=color:0xFF000037%7Cweight:2%7C{c40}&path=color:0x8E00FF7C%7Cweight:2%7C{c80}&key={MAPS_KEY}")
 
         msg = await bot.get_channel(CANALES_ESPEJO[message.channel.id]).send(embed=embed)
