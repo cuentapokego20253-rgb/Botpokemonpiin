@@ -17,7 +17,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot activo y funcionando"
+    return "OK", 200
 
 # ==================================================
 # CONFIGURACIÓN DE DISCORD
@@ -39,18 +39,14 @@ CANALES_ESPEJO = {
 }
 
 CANALES_CON_IVS = {
-    1522694582171599011,
-    1522694783280349345,
-    1522707464150192230,
-    1522695765301133312,
-    1522695933031219491
+    1522694582171599011, 1522694783280349345, 1522707464150192230,
+    1522695765301133312, 1522695933031219491
 }
 
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
-# [FUNCIONES DE LÓGICA Y CLIMA]
+# --- LÓGICA DE CLIMA Y CACHE ---
 def traducir_clima_pogo(main_weather, description=""):
-    if not main_weather: return "Soleado / Despejado ☀️"
     main_lower = str(main_weather).lower()
     desc_lower = str(description).lower()
     if "clear" in main_lower: return "Soleado / Despejado ☀️"
@@ -62,38 +58,20 @@ def traducir_clima_pogo(main_weather, description=""):
     return "Soleado / Despejado ☀️"
 
 active_pokemon_cache = {}
-last_checked_minute = datetime.now().minute
 
-async def fetch_weather_for_cell(lat, lon, max_retries=3):
+async def fetch_weather_for_cell(lat, lon):
     api_key = os.getenv("WEATHER_API_KEY")
     if not api_key: return None
     api_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
-    timeout = aiohttp.ClientTimeout(total=4)
-    headers = {"User-Agent": "Mozilla/5.0"}
-    for attempt in range(1, max_retries + 1):
-        try:
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(api_url, headers=headers) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        w = data.get('weather', [{}])[0]
-                        return traducir_clima_pogo(w.get('main'), w.get('description', ''))
-        except: await asyncio.sleep(1)
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url, timeout=5) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    w = data.get('weather', [{}])[0]
+                    return traducir_clima_pogo(w.get('main'), w.get('description'))
+    except: return None
     return None
-
-async def fetch_initial_weather_bg(msg_id, lat, lon):
-    weather = await fetch_weather_for_cell(lat, lon)
-    if msg_id in active_pokemon_cache and weather:
-        active_pokemon_cache[msg_id]["initial_weather"] = weather
-
-async def smart_weather_watcher_loop(bot):
-    global last_checked_minute
-    while True:
-        await asyncio.sleep(30)
-        if datetime.now().minute != last_checked_minute:
-            last_checked_minute = datetime.now().minute
-            # (Aquí iría la lógica de evaluación que tenías antes)
-            pass
 
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
@@ -112,28 +90,28 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
 @bot.event
 async def on_ready():
     print(f'Bot iniciado como {bot.user}')
-    bot.loop.create_task(smart_weather_watcher_loop(bot))
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
     await bot.process_commands(message)
-    if message.content.startswith('!') or message.channel.id not in CANALES_ESPEJO or not message.embeds: return
+    if message.channel.id not in CANALES_ESPEJO or not message.embeds: return
     
-    # Lógica de procesamiento de mapas
     try:
         embed = message.embeds[0]
         embed_texto = str(embed.to_dict()).replace('%2C', ',')
         coords = re.search(r'(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
         if coords:
             lat_f, lon_f = float(coords.group(1)), float(coords.group(2))
-            c40, c80 = hacer_circulo_perfecto(lat_f, lon_f, 40), hacer_circulo_perfecto(lat_f, lon_f, 80)
+            c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
+            c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
             map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2&markers=color:red%7C{lat_f},{lon_f}&path=color:0xFF0000%7Cweight:2%7C{c40}&path=color:0x0000FF%7Cweight:2%7C{c80}&key={MAPS_KEY}"
+            
             nuevo_embed = embed.copy()
             nuevo_embed.set_image(url=map_url)
             canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
             if canal_destino: await canal_destino.send(embed=nuevo_embed)
-    except Exception as e: print(f"Error: {e}")
+    except Exception as e: print(f"Error procesando mensaje: {e}")
 
 # ==================================================
 # EJECUCIÓN FINAL (Hilos invertidos con Waitress)
