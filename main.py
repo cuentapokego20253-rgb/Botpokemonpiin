@@ -28,15 +28,25 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-CANALES_ESPEJO = {1522694582171599011, 152273855287157536, 152269478328034934, 1522695765301133312, 1523907438590296064, 1522695933031219491, 1523907697936826392, 1522707464150192730, 1525184002011431082, 1522728127565140008, 1525183874852978728}
-CANALES_CON_IVS = {1522694582171599011, 1522694783280349345, 1522707464150192312, 1522695933031219491}
+# MAPEO EXACTO: Canal Original (Izquierda) ➔ Canal Duplicado (Derecha)
+CANALES_MAPEO = {
+    1522694582171599011: 152273855287157536,
+    1522694783280349345: 1523963115467837480,
+    1522695765301133312: 1523907438590296064,
+    1522695933031219491: 1523907697936826392,
+    1522707464150192230: 1523964283484901476,
+    1522711485586079895: 1525184002011431082,
+    1522728127565140008: 1525183874852978728
+}
+
+CANALES_CON_IVS = {1522694582171599011, 1522694783280349345, 1522707464150192230, 1522695933031219491, 1522711485586079895, 1522728127565140008, 1522695765301133312}
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 WEATHER_API_KEY = os.environ.get('WEATHER_API_KEY')
 
 active_pokemon_cache = {}
 
 # ==========================================
-# LÓGICA DE MAPAS Y CLIMA
+# LÓGICA DE MAPAS Y CLIMA (OPTIMIZADA)
 # ==========================================
 def traducir_clima_pogo(main_weather, description=""):
     m = main_weather.lower()
@@ -51,13 +61,13 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx, cy = math.radians(lon) * R, math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
     pts = []
-    for a in range(0, 361, 15):
+    for a in range(0, 361, 30):
         rad = math.radians(a)
         x = cx + radio_metros * math.cos(rad)
         y = cy + radio_metros * math.sin(rad)
         lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2)
         lon_i = math.degrees(x / R)
-        pts.append(f"{lat_i:.6f},{lon_i:.6f}")
+        pts.append(f"{lat_i:.4f},{lon_i:.4f}")
     return "%7C".join(pts)
 
 async def fetch_weather_async(lat, lon):
@@ -80,11 +90,9 @@ async def weather_watcher_loop():
     while True:
         try:
             now = datetime.now()
-            # 1. Purga activa y estricta de elementos expirados
             expired = [k for k, v in active_pokemon_cache.items() if v['expires_at'] < now.timestamp()]
             for k in expired: active_pokemon_cache.pop(k, None)
 
-            # 2. Verificación de clima inteligente (entre segundo 10 y 20 del minuto 00)
             if now.minute == 0 and now.second >= 10 and now.second < 20:
                 for msg_id, data in list(active_pokemon_cache.items()):
                     if data['initial_weather'] == "Pending":
@@ -124,7 +132,8 @@ async def on_message(message):
 
     if message.author == bot.user:
         return
-    if message.channel.id not in CANALES_ESPEJO:
+    
+    if message.channel.id not in CANALES_MAPEO:
         return
 
     try:
@@ -141,9 +150,15 @@ async def on_message(message):
             c80 = hacer_circulo_perfecto(lat, lon, 80)
             embed.set_image(url=f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=16&size=600x300&markers=color:red%7C{lat},{lon}&path=color:0xFF000037%7Cweight:2%7C{c40}&path=color:0x8E00FF7C%7Cweight:2%7C{c80}&key={MAPS_KEY}")
 
-        msg = await bot.get_channel(CANALES_ESPEJO[message.channel.id] if isinstance(CANALES_ESPEJO, dict) else message.channel.id).send(embed=embed) if hasattr(bot.get_channel(message.channel.id), 'send') else await message.channel.send(embed=embed)
+        id_canal_destino = CANALES_MAPEO[message.channel.id]
+        canal_destino = bot.get_channel(id_canal_destino)
+        
+        if not canal_destino:
+            print(f"Error: No se pudo encontrar el canal destino con ID {id_canal_destino}")
+            return
 
-        # GESTIÓN DINÁMICA DE DESPAWN Y FILTRO DE UMBRAL HORARIO
+        msg = await canal_destino.send(embed=embed)
+
         if message.channel.id in CANALES_CON_IVS:
             ahora_ts = datetime.now().timestamp()
             duracion_segundos = 3000
@@ -164,7 +179,7 @@ async def on_message(message):
                     "expires_at": expires_at,
                     "initial_weather": "Pending",
                     "jump_url": msg.jump_url,
-                    "destination_id": message.channel.id
+                    "destination_id": id_canal_destino
                 }
     except Exception as e:
         print(f"Error en procesamiento de mensaje: {e}")
