@@ -89,18 +89,26 @@ async def test_clima(ctx):
 @bot.command(name="forzar_alerta")
 async def forzar_alerta(ctx):
     """Cambia el clima del Pokémon en caché para forzar la alerta"""
+    ahora_ts = datetime.now().timestamp()
+    
+    # Limpiamos primero los expirados de la caché antes de buscar
+    expired_keys = [k for k, v in active_pokemon_cache.items() if v['expires_at'] < ahora_ts]
+    for k in expired_keys: 
+        active_pokemon_cache.pop(k, None)
+
     if not active_pokemon_cache:
-        await ctx.send("❌ No hay ningún Pokémon en la caché ahora mismo. Espera a que uno cruce el umbral horario.")
+        await ctx.send("❌ No hay ningún Pokémon válido en la caché ahora mismo que cruce el umbral.")
         return
 
-    # Tomamos el primer Pokémon guardado en la memoria caché
+    # CORRECCIÓN: Seleccionar estrictamente el Pokémon activo más relevante (que no haya expirado)
     primer_msg_id = list(active_pokemon_cache.keys())[0]
     
     # Le inyectamos un clima FALSO pero VÁLIDO según nuestra función
     clima_falso = "Nieve ❄️" 
     active_pokemon_cache[primer_msg_id]['initial_weather'] = clima_falso
     
-    await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que el Pokémon en caché apareció con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
+    pokemon_afectado = active_pokemon_cache[primer_msg_id].get('pokemon_name', 'Pokémon')
+    await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que el Pokémon *{pokemon_afectado}* en caché apareció con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
 
 # ==========================================
 # MOTOR ASÍNCRONO DE MONITOREO
@@ -109,11 +117,20 @@ async def weather_watcher_loop():
     while True:
         try:
             now = datetime.now()
-            expired = [k for k, v in active_pokemon_cache.items() if v['expires_at'] < now.timestamp()]
-            for k in expired: active_pokemon_cache.pop(k, None)
+            ahora_ts = now.timestamp()
+            
+            # Limpieza estricta de elementos expirados en cada ciclo
+            expired = [k for k, v in active_pokemon_cache.items() if v['expires_at'] < ahora_ts]
+            for k in expired: 
+                active_pokemon_cache.pop(k, None)
 
             if now.minute == 0 and now.second >= 10 and now.second < 20:
                 for msg_id, data in list(active_pokemon_cache.items()):
+                    # Doble validación de seguridad por si expiró justo en este segundo
+                    if data['expires_at'] < ahora_ts:
+                        active_pokemon_cache.pop(msg_id, None)
+                        continue
+
                     if data['initial_weather'] == "Pending":
                         new_w = await fetch_weather_async(data['lat'], data['lon'])
                         data['initial_weather'] = new_w or "Soleado / Despejado ☀️"
@@ -124,9 +141,9 @@ async def weather_watcher_loop():
                             if channel:
                                 nombre_pkmn = data.get('pokemon_name', 'Pokémon')
                                 await channel.send(
-                                    f"⚠️ *¡Cambio Meteorológico!*\n"
-                                    f"📌 *Pokémon:* {nombre_pkmn}\n"
-                                    f"🔄 *Transición:* [{data['initial_weather']}] ➔ [{new_w}]\n"
+                                    f"⚠️ ¡Cambio Meteorológico!\n"
+                                    f"📌 Pokémon: {nombre_pkmn}\n"
+                                    f"🔄 Transición: [{data['initial_weather']}] ➔ [{new_w}]\n"
                                     f"Embed: {data['jump_url']}\n"
                                     f"¡Cagaron los IVs, cagamos con el Pokémon CTM! 🫠"
                                 )
@@ -178,7 +195,16 @@ async def on_message(message):
                 duracion_segundos = int(match_tiempo.group(1)) * 60
             
             expires_at = ahora_ts + duracion_segundos
-            if datetime.now().hour != datetime.fromtimestamp(expires_at).hour:
+            
+            # CORRECCIÓN DE CACHÉ Y UMBRAL:
+            # Aseguramos de manera estricta que el Pokémon cruce el cambio de hora (la hora actual del registro 
+            # debe ser estrictamente menor a la hora de expiración) Y que además su tiempo de expiración sea futuro.
+            hora_actual_num = datetime.now().hour
+            hora_expiracion_num = datetime.fromtimestamp(expires_at).hour
+            
+            # Condición precisa de umbral: Cruza de hora si la hora de expiración es distinta a la actual 
+            # (o pasó al día siguiente) y realmente sigue vivo en este momento.
+            if hora_actual_num != hora_expiracion_num and expires_at > ahora_ts:
                 active_pokemon_cache[message.id] = {
                     "lat": lat, "lon": lon, "expires_at": expires_at,
                     "initial_weather": "Pending", "jump_url": msg.jump_url,
