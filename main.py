@@ -82,7 +82,7 @@ async def test_clima(ctx):
     lat, lon = -33.0269, -71.6386
     clima = await fetch_weather_async(lat, lon)
     if clima:
-        await ctx.send(f"🌤️ *Clima actual detectado en Playa Ancha, Valparaíso:\n{clima}*")
+        await ctx.send(f"🌤️ Clima actual detectado en Playa Ancha, Valparaíso:\n{clima}")
     else:
         await ctx.send("❌ Error al consultar la API del clima para Playa Ancha.")
 
@@ -93,14 +93,11 @@ async def forzar_alerta(ctx):
         await ctx.send("❌ No hay ningún Pokémon en la caché ahora mismo. Espera a que uno cruce el umbral horario.")
         return
 
-    # Tomamos el primer Pokémon guardado en la memoria caché
     primer_msg_id = list(active_pokemon_cache.keys())[0]
-    
-    # Le inyectamos un clima FALSO pero VÁLIDO según nuestra función
     clima_falso = "Nieve ❄️" 
     active_pokemon_cache[primer_msg_id]['initial_weather'] = clima_falso
     
-    await ctx.send(f"✅ *¡Trampa lista!* Se le hizo creer al bot que el Pokémon en caché apareció con *{clima_falso}*.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
+    await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que el Pokémon en caché apareció con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
 
 # ==========================================
 # MOTOR ASÍNCRONO DE MONITOREO
@@ -122,7 +119,14 @@ async def weather_watcher_loop():
                         if new_w and new_w != data['initial_weather']:
                             channel = bot.get_channel(data['destination_id'])
                             if channel:
-                                await channel.send(f"⚠️ *Cambio Meteorológico!*\nEmbed: {data['jump_url']}\n[{data['initial_weather']}] ➔ [{new_w}]")
+                                nombre_pkmn = data.get('pokemon_name', 'Pokémon')
+                                mensaje_alerta = (
+                                    f"⚠️ *¡Cambio Meteorológico!*\n"
+                                    f"📌 *Pokémon:* {nombre_pkmn}\n"
+                                    f"🔄 *Transición:* {data['initial_weather']} ➔ {new_w}\n"
+                                    f"¡Cagaron los IVs, cagamos con el Pokémon CTM! 🫠"
+                                )
+                                await channel.send(mensaje_alerta)
                             data['initial_weather'] = new_w
         except Exception as e:
             print(f"Error en bucle watcher: {e}")
@@ -149,6 +153,12 @@ async def on_message(message):
         text = str(embed.to_dict())
         coords = re.search(r"(-?\d+\.\d+),\s*(-?\d+\.\d+)", text)
         
+        nombre_pokemon = "Pokémon"
+        if embed.title:
+            partes_titulo = embed.title.split()
+            if partes_titulo:
+                nombre_pokemon = partes_titulo[0]
+
         if coords:
             lat, lon = float(coords.group(1)), float(coords.group(2))
             c40 = hacer_circulo_perfecto(lat, lon, 40)
@@ -169,7 +179,8 @@ async def on_message(message):
                 active_pokemon_cache[message.id] = {
                     "lat": lat, "lon": lon, "expires_at": expires_at,
                     "initial_weather": "Pending", "jump_url": msg.jump_url,
-                    "destination_id": CANALES_ESPEJO[message.channel.id]
+                    "destination_id": CANALES_ESPEJO[message.channel.id],
+                    "pokemon_name": nombre_pokemon
                 }
     except Exception as e:
         print(f"Error en procesamiento de mensaje: {e}")
