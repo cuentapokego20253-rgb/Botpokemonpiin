@@ -88,20 +88,25 @@ async def test_clima(ctx):
 
 @bot.command(name="forzar_alerta")
 async def forzar_alerta(ctx):
-    """Cambia el clima del Pokémon en caché para forzar la alerta"""
+    """Cambia el clima del Pokémon en caché para forzar la alerta con purga estricta anti-fantasmas"""
     ahora_ts = datetime.now().timestamp()
     
-    # Limpiamos primero los expirados de la caché antes de buscar
-    expired_keys = [k for k, v in active_pokemon_cache.items() if v['expires_at'] < ahora_ts]
+    # 1. Barrido agresivo de todo lo que ya haya expirado usando list() para evitar errores de iteración
+    expired_keys = [k for k, v in list(active_pokemon_cache.items()) if v['expires_at'] <= ahora_ts]
     for k in expired_keys: 
         active_pokemon_cache.pop(k, None)
 
-    if not active_pokemon_cache:
+    # 2. Filtro estricto: Obtenemos únicamente las llaves de Pokémon cuya expiración sea verdaderamente futura
+    validos = [msg_id for msg_id, data in active_pokemon_cache.items() if data['expires_at'] > ahora_ts]
+
+    if not validos:
+        # Limpieza de emergencia por si quedó cualquier residuo lógico
+        active_pokemon_cache.clear()
         await ctx.send("❌ No hay ningún Pokémon válido en la caché ahora mismo que cruce el umbral.")
         return
 
-    # Seleccionar estrictamente el Pokémon activo más relevante (que no haya expirado)
-    primer_msg_id = list(active_pokemon_cache.keys())[0]
+    # Seleccionar estrictamente el primer Pokémon válido del listado limpio
+    primer_msg_id = validos[0]
     
     # Le inyectamos un clima FALSO pero VÁLIDO según nuestra función
     clima_falso = "Nieve ❄️" 
