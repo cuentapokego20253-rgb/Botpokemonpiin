@@ -100,7 +100,7 @@ async def forzar_alerta(ctx):
         await ctx.send("❌ No hay ningún Pokémon válido en la caché ahora mismo que cruce el umbral.")
         return
 
-    # CORRECCIÓN: Seleccionar estrictamente el Pokémon activo más relevante (que no haya expirado)
+    # Seleccionar estrictamente el Pokémon activo más relevante (que no haya expirado)
     primer_msg_id = list(active_pokemon_cache.keys())[0]
     
     # Le inyectamos un clima FALSO pero VÁLIDO según nuestra función
@@ -108,7 +108,7 @@ async def forzar_alerta(ctx):
     active_pokemon_cache[primer_msg_id]['initial_weather'] = clima_falso
     
     pokemon_afectado = active_pokemon_cache[primer_msg_id].get('pokemon_name', 'Pokémon')
-    await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que el Pokémon *{pokemon_afectado}* en caché apareció con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
+    await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que el Pokémon {pokemon_afectado} en caché apareció con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
 
 # ==========================================
 # MOTOR ASÍNCRONO DE MONITOREO
@@ -196,14 +196,11 @@ async def on_message(message):
             
             expires_at = ahora_ts + duracion_segundos
             
-            # CORRECCIÓN DE CACHÉ Y UMBRAL:
-            # Aseguramos de manera estricta que el Pokémon cruce el cambio de hora (la hora actual del registro 
-            # debe ser estrictamente menor a la hora de expiración) Y que además su tiempo de expiración sea futuro.
+            # FILTRO ESTRICTO DE UMBRAL:
+            # Solo se guarda en caché si realmente cruza el cambio de hora Y su expiración es futura.
             hora_actual_num = datetime.now().hour
             hora_expiracion_num = datetime.fromtimestamp(expires_at).hour
             
-            # Condición precisa de umbral: Cruza de hora si la hora de expiración es distinta a la actual 
-            # (o pasó al día siguiente) y realmente sigue vivo en este momento.
             if hora_actual_num != hora_expiracion_num and expires_at > ahora_ts:
                 active_pokemon_cache[message.id] = {
                     "lat": lat, "lon": lon, "expires_at": expires_at,
