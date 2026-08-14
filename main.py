@@ -1,26 +1,24 @@
 import os
 import re
 import math
-import asyncio
+import time
 import discord
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
 from waitress import serve
 
-# ==================================================
-# CONFIGURACIÓN
-# ==================================================
+# Configuración básica
 app = Flask(__name__)
-
 @app.route('/')
 def home():
-    return "OK", 200
+    return "Bot Online", 200
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# Canales
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -30,7 +28,6 @@ CANALES_ESPEJO = {
     1522711485586079895: 1525184002011431082,
     1522728127565140008: 1525183874852978728
 }
-
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 def hacer_circulo_perfecto(lat, lon, radio_metros):
@@ -49,45 +46,36 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
 
 @bot.event
 async def on_ready():
-    print(f'¡Bot conectado correctamente como {bot.user}!')
+    print(f'Bot {bot.user} conectado exitosamente.')
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
     await bot.process_commands(message)
-    if message.channel.id not in CANALES_ESPEJO or not message.embeds: return
-    try:
-        embed = message.embeds[0]
-        embed_texto = str(embed.to_dict()).replace('%2C', ',')
-        coords = re.search(r'(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
-        if coords:
-            lat_f, lon_f = float(coords.group(1)), float(coords.group(2))
-            c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
-            c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
-            map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2&markers=color:red%7C{lat_f},{lon_f}&path=color:0xFF0000%7Cweight:2%7C{c40}&path=color:0x0000FF%7Cweight:2%7C{c80}&key={MAPS_KEY}"
-            nuevo_embed = embed.copy()
-            nuevo_embed.set_image(url=map_url)
-            canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
-            if canal_destino: await canal_destino.send(embed=nuevo_embed)
-    except Exception as e: print(f"Error: {e}")
+    if message.channel.id in CANALES_ESPEJO and message.embeds:
+        try:
+            embed = message.embeds[0]
+            embed_texto = str(embed.to_dict()).replace('%2C', ',')
+            coords = re.search(r'(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
+            if coords:
+                lat_f, lon_f = float(coords.group(1)), float(coords.group(2))
+                c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
+                c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
+                map_url = f"https://maps.googleapis.com/maps/api/staticmap?center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2&markers=color:red%7C{lat_f},{lon_f}&path=color:0xFF0000%7Cweight:2%7C{c40}&path=color:0x0000FF%7Cweight:2%7C{c80}&key={MAPS_KEY}"
+                nuevo_embed = embed.copy()
+                nuevo_embed.set_image(url=map_url)
+                canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
+                if canal_destino: await canal_destino.send(embed=nuevo_embed)
+        except Exception as e: print(e)
 
-# ==================================================
-# EJECUCIÓN: Bot en hilo secundario aislado, Servidor en principal
-# ==================================================
-def run_discord_bot():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(bot.start(os.environ['DISCORD_TOKEN']))
-    except Exception as e:
-        print(f"Error en Discord: {e}")
+# --- EJECUCIÓN ---
+def start_bot():
+    time.sleep(5) # Espera 5 segundos para que Flask tome el puerto primero
+    bot.run(os.environ['DISCORD_TOKEN'])
 
 if __name__ == "__main__":
-    # Arrancamos Discord en un hilo secundario aislado con su propio loop
-    discord_thread = Thread(target=run_discord_bot, daemon=True)
-    discord_thread.start()
-    
-    # Waitress se queda en el hilo principal respondiendo al puerto de Render
+    # Inicia el bot en un hilo separado
+    threading.Thread(target=start_bot, daemon=True).start()
+    # Inicia el servidor web en el hilo principal
     port = int(os.environ.get("PORT", 10000))
-    print(f"Iniciando servidor web principal en puerto {port}...")
-    serve(app, host='0.0.0.0', port=port, threads=4)
+    serve(app, host='0.0.0.0', port=port)
