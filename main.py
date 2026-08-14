@@ -100,7 +100,7 @@ async def forzar_alerta(ctx):
     await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que el Pokémon en caché apareció con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
 
 # ==========================================
-# MOTOR ASÍNCRONO DE MONITOREO
+# MOTOR ASÍNCRONO DE MONITOREO (CON ALERTA ENCHULADA)
 # ==========================================
 async def weather_watcher_loop():
     while True:
