@@ -28,8 +28,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-CANALES_ESPEJO = {1522694582171599011: 1522738552587157536, 1522694783280349345: 1523963115467837480, 1522695765301133312: 1523907438590296064, 1522695933031219491: 1523907697936826392, 1522707464150192230: 1523964283484901476, 1522711485586079895: 1525184002011431082, 1522728127565140008: 1525183874852978728}
-CANALES_CON_IVS = {1522694582171599011, 1522694783280349345, 1522707464150192230, 1522695765301133312, 1522695933031219491}
+CANALES_ESPEJO = {1522694582171599011, 1522738552587157536, 152269478328034934, 115467837480, 1522695765301133312, 1523907438590286064, 1522695833031219491, 1523907697936826392, 152207464150192230, 1523964283484901476, 1522711485586079895, 1525184002011431082, 1522728127565140008, 1525183874852978728}
+CANALES_CON_IVS = {1522694582171599011, 1522694783280349345, 1522694783280349345, 1522694783280349345, 1522707464150192230}
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 WEATHER_API_KEY = os.environ.get('WEATHER_API_KEY')
 
@@ -44,7 +44,7 @@ def traducir_clima_pogo(main_weather, description=""):
     if any(x in m for x in ["rain", "drizzle", "thunderstorm"]): return "Lluvia 🌧️"
     if "snow" in m: return "Nieve ❄️"
     if any(x in m for x in ["fog", "mist", "haze"]): return "Niebla 🌫️"
-    if "clouds" in m: return "Parcialmente nublado ⛅" if "few" in description.lower() or "scattered" in description.lower() else "Nublado ☁️"
+    if "clouds" in m: return "Parcialmente nublado ☁️" if "few" in description.lower() or "scattered" in description.lower() else "Nublado ☁️"
     return "Soleado / Despejado ☀️"
 
 def hacer_circulo_perfecto(lat, lon, radio_metros):
@@ -79,10 +79,10 @@ async def weather_watcher_loop():
         try:
             now = datetime.now()
             # 1. Purga activa y estricta de elementos expirados según su tiempo de desove real
-            expired = [k for k, v in active_pokemon_cache.items() if v['expires_at'] < now.timestamp()]
+            expired = [k for k, v in active_pokemon_cache.items() if v['expires_at'] <= now.timestamp()]
             for k in expired: active_pokemon_cache.pop(k, None)
-            
-            # 2. Verificación de clima inteligente (exactamente entre el segundo 10 y 20 del minuto 00)
+
+            # 2. Verificación del clima inteligente (exactamente entre el segundo 10 y 20 del minuto 00)
             if now.minute == 0 and now.second >= 10 and now.second < 20:
                 for msg_id, data in list(active_pokemon_cache.items()):
                     if data['initial_weather'] == "Pending":
@@ -93,26 +93,38 @@ async def weather_watcher_loop():
                         if new_w and new_w != data['initial_weather']:
                             channel = bot.get_channel(data['destination_id'])
                             if channel:
-                                await channel.send(f"🚨 *¡Cambio Meteorológico!\nEn {data['jump_url']}: *{data['initial_weather']}* ➔ *{new_w}**")
+                                await channel.send(f"⚠️ *¡Cambio Meteorológico!\nEn {data['jump_url']}: *{data['initial_weather']}* ➔ *{new_w}**")
                             data['initial_weather'] = new_w
         except Exception as e:
             print(f"Error en bucle watcher: {e}")
-            
         await asyncio.sleep(10)
 
 # ==========================================
-# EVENTOS DISCORD
+# EVENTOS DISCORD Y COMANDOS
 # ==========================================
 @bot.event
 async def on_ready():
     print(f'Bot iniciado: {bot.user}')
     bot.loop.create_task(weather_watcher_loop())
 
+@bot.command(name='test_clima')
+async def test_clima(ctx, lat: float = None, lon: float = None):
+    if lat is None or lon is None:
+        await ctx.send("⚠️ Por favor, indica latitud y longitud. Ejemplo: !test_clima -33.4489, -70.6693 (o separado por espacios).")
+        return
+    
+    clima_actual = await fetch_weather_async(lat, lon)
+    if clima_actual:
+        await ctx.send(f"🌤️ *Test de Clima Exitoso\nCoordenadas: {lat}, {lon}\nClima detectado: *{clima_actual}**")
+    else:
+        await ctx.send("❌ No se pudo obtener el clima de la API para esas coordenadas. Revisa la WEATHER_API_KEY.")
+
 @bot.event
 async def on_message(message):
-    if message.author == bot.user or message.channel.id not in CANALES_ESPEJO: return
-    if not message.embeds: return
-    
+    if message.author == bot.user or message.channel.id not in CANALES_ESPEJO:
+        await bot.process_commands(message)
+        return
+
     try:
         embed = message.embeds[0].copy()
         text = str(embed.to_dict())
@@ -120,40 +132,44 @@ async def on_message(message):
         if coords:
             lat, lon = float(coords.group(1)), float(coords.group(2))
             c40, c80 = hacer_circulo_perfecto(lat, lon, 40), hacer_circulo_perfecto(lat, lon, 80)
-            embed.set_image(url=f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=16&size=600x300&markers=color:red%7C{lat},{lon}&path=color:0xFF0000%7Cweight:2%7C{c40}&path=color:0x0000FF%7Cweight:2%7C{c80}&key={MAPS_KEY}")
+            embed.set_image(url=f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lon}&zoom=16&size=600x300&markers=color:red%7C{lat},{lon}&path=color:0xFF000037%7Cweight:2%7C{c40}&path=color:0x8E00FF7C%7Cweight:2%7C{c80}&key={MAPS_KEY}")
             
-            msg = await bot.get_channel(CANALES_ESPEJO[message.channel.id]).send(embed=embed)
-            
-            # ========================================================
-            # GESTIÓN DINÁMICA DE DESPAWN Y FILTRO DE UMBRAL HORARIO
-            # ========================================================
-            if message.channel.id in CANALES_CON_IVS:
-                ahora_ts = datetime.now().timestamp()
-                
-                # Margen amplio por defecto de 50 minutos (3000 segundos) para spawns largos
-                duracion_segundos = 3000 
-                
-                # Extracción inteligente de minutos restantes desde el embed si están disponibles
-                match_tiempo = re.search(r"(\d+)\s*m", text.lower())
-                if match_tiempo:
-                    minutos_extra = int(match_tiempo.group(1))
-                    if minutos_extra > 0:
-                        duracion_segundos = minutos_extra * 60
+        msg = await bot.get_channel(CANALES_ESPEJO[message.channel.id]).send(embed=embed) if isinstance(CANALES_ESPEJO, dict) else await bot.get_channel(message.channel.id).send(embed=embed)
 
-                expires_at = ahora_ts + duracion_segundos
-                
-                hora_actual_num = datetime.now().hour
-                hora_expiracion_num = datetime.fromtimestamp(expires_at).hour
-                
-                # FILTRO DE UMBRAL: Solo se almacena si el Pokémon cruza el cambio de hora
-                if hora_actual_num != hora_expiracion_num:
-                    active_pokemon_cache[message.id] = {
-                        "lat": lat, "lon": lon, "expires_at": expires_at,
-                        "initial_weather": "Pending", "destination_id": CANALES_ESPEJO[message.channel.id],
-                        "jump_url": msg.jump_url
-                    }
+        # ==========================================
+        # GESTIÓN DINÁMICA DE DESPAWN Y FILTRO DE UMBRAL HORARIO
+        # ==========================================
+        if message.channel.id in CANALES_CON_IVS:
+            ahora_ts = datetime.now().timestamp()
+            
+            # Margen amplio por defecto de 50 minutos (3000 segundos) para spawns largos
+            duracion_segundos = 3000
+            match_tiempo = re.search(r"(\d+)\s*m", text.lower())
+            if match_tiempo:
+                minutos_extra = int(match_tiempo.group(1))
+                if minutos_extra > 0:
+                    duracion_segundos = minutos_extra * 60
+
+            expires_at = ahora_ts + duracion_segundos
+            
+            hora_actual_num = datetime.now().hour
+            hora_expiracion_num = datetime.fromtimestamp(expires_at).hour
+
+            # FILTRO DE UMBRAL: Solo se almacena si el Pokémon cruza el cambio de hora
+            if hora_actual_num != hora_expiracion_num:
+                active_pokemon_cache[message.id] = {
+                    "lat": lat,
+                    "lon": lon,
+                    "expires_at": expires_at,
+                    "initial_weather": "Pending",
+                    "jump_url": msg.jump_url,
+                    "destination_id": message.channel.id
+                }
+
     except Exception as e:
         print(f"Error en procesamiento de mensaje: {e}")
+
+    await bot.process_commands(message)
 
 keep_alive()
 bot.run(os.environ['DISCORD_TOKEN'])
