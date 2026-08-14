@@ -38,14 +38,9 @@ CANALES_ESPEJO = {
     1522728127565140008: 1525183874852978728
 }
 
-CANALES_CON_IVS = {
-    1522694582171599011, 1522694783280349345, 1522707464150192230,
-    1522695765301133312, 1522695933031219491
-}
-
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
-# --- LÓGICA DE CLIMA Y CACHE ---
+# --- LÓGICA DE CLIMA Y MAPAS ---
 def traducir_clima_pogo(main_weather, description=""):
     main_lower = str(main_weather).lower()
     desc_lower = str(description).lower()
@@ -56,22 +51,6 @@ def traducir_clima_pogo(main_weather, description=""):
     elif "clouds" in main_lower:
         return "Parcialmente nublado ⛅" if ("few" in desc_lower or "scattered" in desc_lower) else "Nublado ☁️"
     return "Soleado / Despejado ☀️"
-
-active_pokemon_cache = {}
-
-async def fetch_weather_for_cell(lat, lon):
-    api_key = os.getenv("WEATHER_API_KEY")
-    if not api_key: return None
-    api_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url, timeout=5) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    w = data.get('weather', [{}])[0]
-                    return traducir_clima_pogo(w.get('main'), w.get('description'))
-    except: return None
-    return None
 
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
@@ -89,7 +68,7 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
 
 @bot.event
 async def on_ready():
-    print(f'Bot iniciado como {bot.user}')
+    print(f'¡Bot conectado correctamente como {bot.user}!')
 
 @bot.event
 async def on_message(message):
@@ -117,13 +96,16 @@ async def on_message(message):
 # EJECUCIÓN FINAL (Hilos invertidos con Waitress)
 # ==================================================
 def run_discord_bot():
-    bot.run(os.environ['DISCORD_TOKEN'])
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(bot.start(os.environ['DISCORD_TOKEN']))
 
 if __name__ == "__main__":
-    discord_thread = threading.Thread(target=run_discord_bot)
-    discord_thread.daemon = True
+    # Discord en segundo plano con su propio event loop forzado
+    discord_thread = threading.Thread(target=run_discord_bot, daemon=True)
     discord_thread.start()
 
+    # Servidor web en hilo principal
     port = int(os.environ.get("PORT", 10000))
-    print(f"Servidor web en puerto {port}")
+    print(f"Servidor web iniciado en puerto {port}")
     serve(app, host='0.0.0.0', port=port, threads=4)
