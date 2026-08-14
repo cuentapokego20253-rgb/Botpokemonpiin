@@ -72,17 +72,22 @@ async def on_message(message):
     except Exception as e: print(f"Error: {e}")
 
 # ==================================================
-# EJECUCIÓN: Servidor Web en hilo, Bot en principal
+# EJECUCIÓN: Bot en hilo secundario aislado, Servidor en principal
 # ==================================================
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    serve(app, host='0.0.0.0', port=port, threads=4)
+def run_discord_bot():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(bot.start(os.environ['DISCORD_TOKEN']))
+    except Exception as e:
+        print(f"Error en Discord: {e}")
 
 if __name__ == "__main__":
-    # Arrancamos Flask en un hilo separado
-    t = Thread(target=run_flask)
-    t.daemon = True
-    t.start()
+    # Arrancamos Discord en un hilo secundario aislado con su propio loop
+    discord_thread = Thread(target=run_discord_bot, daemon=True)
+    discord_thread.start()
     
-    # Arrancamos el bot en el hilo principal
-    bot.run(os.environ['DISCORD_TOKEN'])
+    # Waitress se queda en el hilo principal respondiendo al puerto de Render
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Iniciando servidor web principal en puerto {port}...")
+    serve(app, host='0.0.0.0', port=port, threads=4)
