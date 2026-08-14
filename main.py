@@ -2,10 +2,10 @@ import os
 import re
 import math
 import time
+import threading
 import discord
 from discord.ext import commands
 from flask import Flask
-from threading import Thread
 from waitress import serve
 
 # Configuración básica
@@ -68,14 +68,13 @@ async def on_message(message):
                 if canal_destino: await canal_destino.send(embed=nuevo_embed)
         except Exception as e: print(e)
 
-# --- EJECUCIÓN ---
+# --- EJECUCIÓN CORREGIDA ---
 def start_bot():
-    time.sleep(5) # Espera 5 segundos para que Flask tome el puerto primero
+    time.sleep(5) 
     bot.run(os.environ['DISCORD_TOKEN'])
 
 if __name__ == "__main__":
-    # Inicia el bot en un hilo separado
-    threading.Thread(target=start_bot, daemon=True).start()
-    # Inicia el servidor web en el hilo principal
+    t = threading.Thread(target=start_bot, daemon=True)
+    t.start()
     port = int(os.environ.get("PORT", 10000))
     serve(app, host='0.0.0.0', port=port)
