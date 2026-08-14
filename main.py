@@ -74,7 +74,7 @@ async def fetch_weather_async(lat, lon):
     return None
 
 # ==========================================
-# COMANDO TEST CLIMA (PLAYA ANCHA)
+# COMANDOS (TEST Y SIMULADOR)
 # ==========================================
 @bot.command(name="test_clima")
 async def test_clima(ctx):
@@ -85,6 +85,22 @@ async def test_clima(ctx):
         await ctx.send(f"🌤️ *Clima actual detectado en Playa Ancha, Valparaíso:\n{clima}*")
     else:
         await ctx.send("❌ Error al consultar la API del clima para Playa Ancha.")
+
+@bot.command(name="forzar_alerta")
+async def forzar_alerta(ctx):
+    """Cambia el clima del Pokémon en caché para forzar la alerta"""
+    if not active_pokemon_cache:
+        await ctx.send("❌ No hay ningún Pokémon en la caché ahora mismo. Espera a que uno cruce el umbral horario.")
+        return
+
+    # Tomamos el primer Pokémon guardado en la memoria caché
+    primer_msg_id = list(active_pokemon_cache.keys())[0]
+    
+    # Le inyectamos un clima FALSO pero VÁLIDO según nuestra función
+    clima_falso = "Nieve ❄️" 
+    active_pokemon_cache[primer_msg_id]['initial_weather'] = clima_falso
+    
+    await ctx.send(f"✅ *¡Trampa lista!* Se le hizo creer al bot que el Pokémon en caché apareció con *{clima_falso}*.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
 
 # ==========================================
 # MOTOR ASÍNCRONO DE MONITOREO
