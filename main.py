@@ -6,7 +6,7 @@ import discord
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
-from datetime import datetime, timedelta  # <-- CORRECCIÓN 1: timedelta importado correctamente
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import aiohttp
 
@@ -28,7 +28,7 @@ def keep_alive():
     t.start()
 
 # ==========================================
-# CONFIGURACIÓN Y CACHÉ
+# CONFIGURACIÓN Y CACHÉ (ACTUALIZADO A LISTAS MULTI-INSTANCIA)
 # ==========================================
 intents = discord.Intents.default()
 intents.message_content = True
@@ -55,6 +55,7 @@ CANALES_CON_IVS = {
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 WEATHER_API_KEY = os.environ.get('WEATHER_API_KEY')
 
+# Caché estructurada por ID de canal que contiene una lista de Pokémon activos
 active_pokemon_cache = {}
 
 # ==========================================
@@ -110,29 +111,35 @@ async def test_clima(ctx):
 
 @bot.command(name="forzar_alerta")
 async def forzar_alerta(ctx):
-    """Cambia el clima del Pokémon en caché para forzar la alerta con purga estricta anti-fantasmas"""
+    """Aplica trampa de clima a TODOS los Pokémon activos en caché de manera independiente"""
     ahora_ts = datetime.now(CHILE_TZ).timestamp()
     
-    expired_keys = [k for k, v in list(active_pokemon_cache.items()) if v['expires_at'] <= ahora_ts]
-    for k in expired_keys: 
-        active_pokemon_cache.pop(k, None)
+    # Purgar expirados de todas las listas por canal
+    for channel_id in list(active_pokemon_cache.keys()):
+        active_pokemon_cache[channel_id] = [p for p in active_pokemon_cache[channel_id] if p['expires_at'] > ahora_ts]
+        if not active_pokemon_cache[channel_id]:
+            del active_pokemon_cache[channel_id]
 
-    validos = [msg_id for msg_id, data in active_pokemon_cache.items() if data['expires_at'] > ahora_ts]
+    total_validos = sum(len(p_list) for p_list in active_pokemon_cache.values())
 
-    if not validos:
+    if total_validos == 0:
         active_pokemon_cache.clear()
         await ctx.send("❌ No hay ningún Pokémon válido en la caché ahora mismo que cruce el umbral.")
         return
 
-    primer_msg_id = validos[0]
     clima_falso = "Nieve ❄️" 
-    active_pokemon_cache[primer_msg_id]['initial_weather'] = clima_falso
+    nombres_afectados = []
+
+    # Forzar el clima falso en CADA Pokémon de CADA canal registrado
+    for channel_id, pokemons in active_pokemon_cache.items():
+        for data in pokemons:
+            data['initial_weather'] = clima_falso
+            nombres_afectados.append(data.get('pokemon_name', 'Pokémon'))
     
-    pokemon_afectado = active_pokemon_cache[primer_msg_id].get('pokemon_name', 'Pokémon')
-    await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que el Pokémon {pokemon_afectado} en caché apareció con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si salta la alerta real.")
+    await ctx.send(f"✅ ¡Trampa lista! Se le hizo creer al bot que los {total_validos} Pokémon en caché ({', '.join(nombres_afectados)}) aparecieron con {clima_falso}.\nEspera al ciclo de monitoreo (segundos 10 al 20 del minuto 00) para ver si saltan las alertas reales.")
 
 # ==========================================
-# MOTOR ASÍNCRONO DE MONITOREO
+# MOTOR ASÍNCRONO DE MONITOREO (MULTI-ALERTA)
 # ==========================================
 async def weather_watcher_loop():
     while True:
@@ -140,33 +147,36 @@ async def weather_watcher_loop():
             now = datetime.now(CHILE_TZ)
             ahora_ts = now.timestamp()
             
-            expired = [k for k, v in active_pokemon_cache.items() if v['expires_at'] < ahora_ts]
-            for k in expired: 
-                active_pokemon_cache.pop(k, None)
+            # Purgar expirados en las listas
+            for channel_id in list(active_pokemon_cache.keys()):
+                active_pokemon_cache[channel_id] = [p for p in active_pokemon_cache[channel_id] if p['expires_at'] >= ahora_ts]
+                if not active_pokemon_cache[channel_id]:
+                    del active_pokemon_cache[channel_id]
 
             if now.minute == 0 and now.second >= 10 and now.second < 20:
-                for msg_id, data in list(active_pokemon_cache.items()):
-                    if data['expires_at'] < ahora_ts:
-                        active_pokemon_cache.pop(msg_id, None)
-                        continue
+                # Iterar sobre cada canal y cada Pokémon de forma independiente
+                for channel_id, pokemons in list(active_pokemon_cache.items()):
+                    for data in pokemons:
+                        if data['expires_at'] < ahora_ts:
+                            continue
 
-                    if data['initial_weather'] == "Pending":
-                        new_w = await fetch_weather_async(data['lat'], data['lon'])
-                        data['initial_weather'] = new_w or "Soleado / Despejado ☀️"
-                    else:
-                        new_w = await fetch_weather_async(data['lat'], data['lon'])
-                        if new_w and new_w != data['initial_weather']:
-                            channel = bot.get_channel(data['destination_id'])
-                            if channel:
-                                nombre_pkmn = data.get('pokemon_name', 'Pokémon')
-                                await channel.send(
-                                    f"⚠️ ¡Cambio Meteorológico!\n"
-                                    f"📌 Pokémon: {nombre_pkmn}\n"
-                                    f"🔄 Transición: [{data['initial_weather']}] ➔ [{new_w}]\n"
-                                    f"Embed: {data['jump_url']}\n"
-                                    f"¡Cagaron los IVs, cagamos con el Pokémon CTM! 🫠"
-                                )
-                            data['initial_weather'] = new_w
+                        if data['initial_weather'] == "Pending":
+                            new_w = await fetch_weather_async(data['lat'], data['lon'])
+                            data['initial_weather'] = new_w or "Soleado / Despejado ☀️"
+                        else:
+                            new_w = await fetch_weather_async(data['lat'], data['lon'])
+                            if new_w and new_w != data['initial_weather']:
+                                channel = bot.get_channel(data['destination_id'])
+                                if channel:
+                                    nombre_pkmn = data.get('pokemon_name', 'Pokémon')
+                                    await channel.send(
+                                        f"⚠️ ¡Cambio Meteorológico!\n"
+                                        f"📌 Pokémon: {nombre_pkmn}\n"
+                                        f"🔄 Transición: [{data['initial_weather']}] ➔ [{new_w}]\n"
+                                        f"Embed: {data['jump_url']}\n"
+                                        f"¡Cagaron los IVs, cagamos con el Pokémon CTM! 🫠"
+                                    )
+                                data['initial_weather'] = new_w
         except Exception as e:
             print(f"Error en bucle watcher: {e}")
         await asyncio.sleep(10)
@@ -211,14 +221,12 @@ async def on_message(message):
             now = datetime.now(CHILE_TZ)
             ahora_ts = now.timestamp()
             
-            # CORRECCIÓN 2: Buscamos el timestamp tanto en el contenido como dentro del texto del Embed (donde vive PoryPro)
             contenido_completo = message.content + " " + text
             match_ts_discord = re.search(r'<t:(\d+)(?::[a-zA-Z])?>', contenido_completo)
             
             if match_ts_discord:
                 expires_at = int(match_ts_discord.group(1))
             else:
-                # Respaldo por si acaso leyendo los minutos habituales del texto
                 duracion_segundos = 3000
                 match_tiempo = re.search(r"(\d+)\s*m", text.lower())
                 if match_tiempo and int(match_tiempo.group(1)) > 0:
@@ -231,12 +239,21 @@ async def on_message(message):
             next_hour = (dt_actual + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
             
             if dt_expira >= next_hour and expires_at > ahora_ts:
-                active_pokemon_cache[message.id] = {
-                    "lat": lat, "lon": lon, "expires_at": expires_at,
-                    "initial_weather": "Pending", "jump_url": msg.jump_url,
+                src_channel = message.channel.id
+                if src_channel not in active_pokemon_cache:
+                    active_pokemon_cache[src_channel] = []
+                
+                # Agregar el nuevo Pokémon a la lista del canal sin sobrescribir los anteriores
+                active_pokemon_cache[src_channel].append({
+                    "message_id": message.id,
+                    "lat": lat, 
+                    "lon": lon, 
+                    "expires_at": expires_at,
+                    "initial_weather": "Pending", 
+                    "jump_url": msg.jump_url,
                     "destination_id": CANALES_ESPEJO[message.channel.id],
                     "pokemon_name": nombre_pokemon
-                }
+                })
     except Exception as e:
         print(f"Error en procesamiento de mensaje: {e}")
 
