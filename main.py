@@ -1,5 +1,6 @@
 import os
 import discord
+from discord.ext import commands
 import re
 import math
 import asyncio
