@@ -83,10 +83,10 @@ async def on_message(message):
             lat_f = None
             lon_f = None
 
-            # Búsqueda segura y equilibrada (acepta de 2 decimales en adelante para evitar falsos positivos)
-            coords_match = re.search(r'(?:qlcenter|query|loc|ll)=(-?\d{1,2}\.\d{2,})\s*,\s*(-?\d{1,3}\.\d{2,})', embed_texto)
+            # Tu regex original EXACTA, sin cambios
+            coords_match = re.search(r'(?:qlcenter|query|loc|ll)=(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'(-?\d{1,2}\.\d{2,})\s*,\s*(-?\d{1,3}\.\d{2,})', embed_texto)
+                coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
 
             if coords_match:
                 try:
@@ -95,14 +95,14 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            # Generar el mapa estático con sistema de 3 reintentos si existen coordenadas
+            # Aquí se insertaron los 3 intentos, nada más
             if lat_f is not None and lon_f is not None:
-                mapa_exitoso = False
+                mapa_creado = False
                 for intento in range(3):
                     try:
                         c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                         c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
-
+                        
                         map_url = (
                             f"https://maps.googleapis.com/maps/api/staticmap?"
                             f"center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2"
@@ -112,17 +112,12 @@ async def on_message(message):
                             f"&key={MAPS_KEY}"
                         )
                         nuevo_embed.set_image(url=map_url)
-                        mapa_exitoso = True
-                        break  # Si el mapa sale bien, rompemos el ciclo de reintentos
-                    except Exception as map_err:
-                        print(f"Intento {intento + 1} fallido generando mapa: {map_err}")
-                        if intento < 2:
-                            await asyncio.sleep(1)  # Espera 1 segundo antes de reintentar
+                        mapa_creado = True
+                        break # Si sale bien, para
+                    except Exception:
+                        await asyncio.sleep(1) # Espera 1s y reintenta
 
-                if not mapa_exitoso:
-                    print("Aviso: No se pudo generar el mapa tras 3 intentos, se enviará el embed sin mapa.")
-
-            # Obtención segura del canal destino
+            # Obtención ultra segura del canal destino
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
 
