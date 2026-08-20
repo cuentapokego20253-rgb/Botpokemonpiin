@@ -57,65 +57,101 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
         pts.append(f"|{lat_i:.6f},{lon_i:.6f}")
     return "".join(pts)
 
+# EXTRACCIÓN ROBUSTA ESPECÍFICA PARA EMBEDS DE TRACKERS
+def extraer_coordenadas_embed(embed):
+    textos_a_revisar = []
+    
+    # 1. Revisar URL principal del embed
+    if embed.url:
+        textos_a_revisar.append(embed.url)
+    
+    # 2. Revisar la descripción
+    if embed.description:
+        textos_a_revisar.append(embed.description)
+        
+    # 3. Revisar todos los campos (fields) donde suelen venir los links de Google Maps
+    if embed.fields:
+        for field in embed.fields:
+            if field.name:
+                textos_a_revisar.append(field.name)
+            if field.value:
+                textos_a_revisar.append(field.value)
+                
+    # 4. Incluir representación en texto plano como respaldo general
+    textos_a_revisar.append(str(embed.to_dict()))
+
+    # Buscar patrones de coordenadas o parámetros de mapas
+    for texto in textos_a_revisar:
+        # Buscar en URLs con q=, center=, query=, etc.
+        match = re.search(r'(?:q|center|query|loc|ll)=?(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)', texto)
+        if match:
+            try:
+                lat = float(match.group(1))
+                lon = float(match.group(2))
+                if -90 <= lat <= 90 and -180 <= lon <= 180:
+                    return lat, lon
+            except Exception:
+                pass
+
+        # Buscar coordenadas directas con varios decimales
+        match_coords = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', texto)
+        if match_coords:
+            try:
+                lat = float(match_coords.group(1))
+                lon = float(match_coords.group(2))
+                if -90 <= lat <= 90 and -180 <= lon <= 180:
+                    return lat, lon
+            except Exception:
+                pass
+
+    return None, None
+
 @bot.event
 async def on_ready():
     print(f'Bot iniciado con éxito como {bot.user}')
 
 @bot.event
 async def on_message(message):
-    # 1. Ignorar mensajes propios del bot
     if message.author == bot.user:
         return
 
-    # 2. Verificar si el canal está en el mapeo
     if message.channel.id not in CANALES_ESPEJO:
         return
 
-    # 3. Validar que contenga Embeds
     if not message.embeds:
         return
 
     try:
         for embed in message.embeds:
             nuevo_embed = embed.copy()
-            embed_texto = str(embed.to_dict()).replace('%2C', ',')
+            
+            # Extraer coordenadas usando la nueva función especializada
+            lat_f, lon_f = extraer_coordenadas_embed(embed)
+            print(f"Mensaje detectado en canal {message.channel.id} -> Coordenadas extraídas: Lat={lat_f}, Lon={lon_f}")
 
-            lat_f = None
-            lon_f = None
-
-            # Búsqueda universal de coordenadas en cualquier formato
-            coords_match = re.search(r'(?:q|center|query|loc|ll)=?(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
-            if not coords_match:
-                coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
-
-            if coords_match:
-                try:
-                    lat_f = float(coords_match.group(1))
-                    lon_f = float(coords_match.group(2))
-                except Exception:
-                    pass
-
-            # Generar el mapa estático con Geoapify si existen coordenadas
+            # Generar el mapa estático con Geoapify si se encontraron coordenadas
             if lat_f is not None and lon_f is not None:
                 try:
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
-                    # Se usa 'path' que es el parámetro exacto que acepta Geoapify para trazos
                     map_url = (
                         f"https://maps.geoapify.com/v1/staticmap?"
                         f"style=osm-bright&width=600&height=300&scale=2&"
                         f"center=lon:{lon_f},lat:{lat_f}&zoom=16&"
-                        f"marker=lon:{lon_f},lat:{lat_f};color:%23ff0000;size:large&"
+                        f"marker=lon:{lon_f},lat:{lon_f};color:%23ff0000;size:large&"
                         f"path=color:%23ff0000|width:2{c40}&"
                         f"path=color:%230000ff|width:2{c80}&"
                         f"apiKey={MAPS_KEY}"
                     )
                     nuevo_embed.set_image(url=map_url)
+                    print(f"Mapa generado exitosamente para: {lat_f}, {lon_f}")
                 except Exception as map_err:
-                    print(f"Error generando mapa: {map_err}")
+                    print(f"Error generando mapa en Geoapify: {map_err}")
+            else:
+                print("Aviso: No se pudieron extraer coordenadas de este embed.")
 
-            # Obtención ultra segura del canal destino
+            # Reenviar al canal destino
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
             
@@ -125,7 +161,6 @@ async def on_message(message):
                 except Exception as fetch_err:
                     print(f"Error obteniendo canal {canal_destino_id}: {fetch_err}")
 
-            # Reenviar el mensaje al canal duplicado
             if canal_destino:
                 await canal_destino.send(embed=nuevo_embed)
 
