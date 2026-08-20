@@ -44,8 +44,9 @@ def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
         angulo = math.radians(float(i) / num_puntos * 360.0)
         dx = radio_metros * math.cos(angulo)
         dy = radio_metros * math.sin(angulo)
-        d_lat = (dy / radio_tierra) * (180.0 / math.pi)
-        d_lon = (dx / (radio_tierra * math.cos(math.radians(lat)))) * (180.0 / math.pi)
+        factor_correccion = 1.5 
+        d_lat = ((dy / radio_tierra) * (180.0 / math.pi)) / factor_correccion
+        d_lon = ((dx / (radio_tierra * math.cos(math.radians(lat)))) * (180.0 / math.pi)) / factor_correccion
         
         # Geoapify requiere formato "longitud,latitud"
         coordenadas.append(f"{lon + d_lon:.6f},{lat + d_lat:.6f}")
@@ -82,7 +83,7 @@ async def on_message(message):
             # Insertamos los polígonos matemáticos en Geoapify
             map_url = (
                 f"https://maps.geoapify.com/v1/staticmap?"
-                f"style=osm-bright&width=400&height=300&"
+                f"style=osm-bright&width=600&height=300&"
                 f"center=lonlat:{lon_f},{lat_f}&zoom=15&"
                 f"marker=lonlat:{lon_f},{lat_f};color:%23ff0000;size:large&"
                 f"geometry=polygon:{c40};linewidth:2;linecolor:%23ff0000;fillopacity:0|"
