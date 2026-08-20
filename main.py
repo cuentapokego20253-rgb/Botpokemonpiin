@@ -28,26 +28,25 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales
+# Mapeo de Canales (Tus 7 canales configurados)
 CANALES_ESPEJO = {
-    
-    1522694582171599011: 1522738552587157536, # ID 100-A      100-B
-    1522694783280349345: 1523963115467837480, # ID 0-A        0-B
-    1522707464150192230: 1523964283484901476, # Copa500 A     Copa 500 B
-    1522695765301133312: 1523907438590296064, # Liga Super A  Liga super B
-    1522695933031219491: 1523907697936826392, # Liga Ultra A  Liga Utra B
-    1522711485586079895: 1525184002011431082, # Pokes Raro A  Pokes Raro B
-    1522728127565140008: 1525183874852978728  # Keckleon A    Keckleon B
+    1522694582171599011: 1522738552587157536,
+    1522694783280349345: 1523963115467837480,
+    1522695765301133312: 1523907438590296064,
+    1522695933031219491: 1523907697936826392,
+    1522707464150192230: 1523964283484901476,
+    1522711485586079895: 1525184002011431082,
+    1522728127565140008: 1525183874852978728
 }
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
-# FUNCIÓN PARA HACER LOS CÍRCULOS PERFECTOS (Fuera y ordenada)
+# FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
     cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
     pts = []
-    for a in range(0, 361, 10):
+    for a in range(0, 361, 15):
         rad = math.radians(a)
         x = cx + radio_metros * math.cos(rad)
         y = cy + radio_metros * math.sin(rad)
@@ -62,11 +61,11 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    # 1. Ignorar mensajes enviados por el propio bot
+    # 1. Ignorar mensajes propios del bot
     if message.author == bot.user:
         return
 
-    # 2. Verificar si el mensaje viene de un canal mapeado
+    # 2. Verificar si el canal está en el mapeo
     if message.channel.id not in CANALES_ESPEJO:
         return
 
@@ -74,20 +73,18 @@ async def on_message(message):
     if not message.embeds:
         return
 
-    # Protección total contra cualquier error inesperado
     try:
         for embed in message.embeds:
             nuevo_embed = embed.copy()
-            embed_texto = str(embed.to_dict())
+            embed_texto = str(embed.to_dict()).replace('%2C', ',')
 
-            # Inicializar variables de coordenadas de forma segura
             lat_f = None
             lon_f = None
 
-            # Búsqueda ultra segura de coordenadas en el embed
-            coords_match = re.search(r'q=(-?\d+\.\d+)(?:%2C|,)\s*(-?\d+\.\d+)', embed_texto)
+            # Búsqueda universal de coordenadas en cualquier formato
+            coords_match = re.search(r'(?:q|center|query|loc|ll)=?(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'q=(-?\d{1,2}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})', embed_texto)
+                coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
 
             if coords_match:
                 try:
@@ -96,13 +93,10 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            # Si se obtuvieron coordenadas válidas, generar el mapa estático
+            # Generar el mapa estático si existen coordenadas
             if lat_f is not None and lon_f is not None:
                 try:
-                    # Cálculo de puntos para el círculo de 40 metros (Radio Avatar)
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
-
-                    # Cálculo de puntos para el círculo de 80 metros (Radio Parque)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
                     map_url = (
@@ -115,16 +109,24 @@ async def on_message(message):
                     )
                     nuevo_embed.set_image(url=map_url)
                 except Exception as map_err:
-                    print(f"Error generando el mapa: {map_err}")
+                    print(f"Error generando mapa: {map_err}")
 
-            # Reenviar el mensaje enriquecido al canal duplicado
+            # Obtención ultra segura del canal destino
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
+            
+            if not canal_destino:
+                try:
+                    canal_destino = await bot.fetch_channel(canal_destino_id)
+                except Exception as fetch_err:
+                    print(f"Error obteniendo canal {canal_destino_id}: {fetch_err}")
+
+            # Reenviar el mensaje al canal duplicado
             if canal_destino:
                 await canal_destino.send(embed=nuevo_embed)
 
     except Exception as e:
-        print(f"Error general procesando el mensaje: {e}")
+        print(f"Error general procesando mensaje: {e}")
 
 # Iniciar servidor web y conectar el bot a Discord
 keep_alive()
