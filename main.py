@@ -41,6 +41,7 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
     cx = math.radians(lon) * R
     cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
     pts = []
+    # 30 grados es suficiente para que se vea circular sin inflar la URL
     for a in range(0, 361, 30):
         rad = math.radians(a)
         x = cx + radio_metros * math.cos(rad)
@@ -76,13 +77,15 @@ async def on_message(message):
             c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
             c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
             
-            # UNIÓN CORRECTA: Un solo parámetro 'geometry' con los dos linestrings separados por '|'
+            # Geoapify requiere 'polygon' para figuras cerradas y el pipe '|' para separar geometrías
+            # Usamos colores hex sin el símbolo # para evitar errores de codificación en la URL
             map_url = (
                 f"https://maps.geoapify.com/v1/staticmap?"
                 f"style=osm-bright&width=600&height=300&"
                 f"center=lonlat:{lon_f},{lat_f}&zoom=15&"
-                f"marker=lonlat:{lon_f},{lat_f};color=%23ff0000;size:large&"
-                f"geometry=linestring:{c40};linecolor=%23ff0000;linewidth:2|linestring:{c80};linecolor=%230000ff;linewidth:2&"
+                f"marker=lonlat:{lon_f},{lat_f};color:ff0000;size:large&"
+                f"geometry=polygon:{c40};linecolor:ff0000;linewidth:2;fillopacity:0|"
+                f"polygon:{c80};linecolor:0000ff;linewidth:2;fillopacity:0&"
                 f"apiKey={MAPS_KEY}"
             )
             print(f"DEBUG URL: {map_url}")
