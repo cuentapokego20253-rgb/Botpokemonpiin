@@ -8,29 +8,23 @@ from discord.ext import commands
 from flask import Flask
 from threading import Thread
 
-# 1. Configurar Flask para mantener el servicio activo en Render
+# Flask para mantener vivo Render
 app = Flask(__name__)
-
 @app.route('/')
 def home():
-    return "Bot activo y funcionando"
+    return "Bot activo"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-def keep_alive():
-    t = Thread(target=run_flask)
-    t.daemon = True
-    t.start()
+# Iniciar Flask
+Thread(target=run_flask, daemon=True).start()
 
-# 2. Configuración de Intenciones de Discord
+# Configuración del Bot
 intents = discord.Intents.default()
 intents.message_content = True
-intents.guilds = True
-
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales (Tus 7 canales configurados)
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -41,129 +35,54 @@ CANALES_ESPEJO = {
     1522728127565140008: 1525183874852978728
 }
 
-MAPS_KEY = os.environ.get('MAPBOX_API_KEY')
-
-# FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS (Tu lógica intacta)
-def hacer_circulo_perfecto(lat, lon, radio_metros):
+def hacer_circulo_perfecto(lat, lon, radio):
     R = 6378137.0
     cx = math.radians(lon) * R
     cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
     pts = []
     for a in range(0, 361, 15):
         rad = math.radians(a)
-        x = cx + radio_metros * math.cos(rad)
-        y = cy + radio_metros * math.sin(rad)
+        x = cx + radio * math.cos(rad)
+        y = cy + radio * math.sin(rad)
         lon_i = math.degrees(x / R)
         lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2.0)
         pts.append([round(lon_i, 6), round(lat_i, 6)])
-    if pts:
-        pts.append(pts[0])
-    return pts
+    return pts + [pts[0]]
 
 @bot.event
 async def on_ready():
-    print(f'>>> ¡BOT CONECTADO CON ÉXITO COMO {bot.user}! <<<')
+    print('>>> BOT CONECTADO Y LISTO <<<')
 
 @bot.event
 async def on_message(message):
-    print(f"DEBUG: Mensaje detectado en canal {message.channel.id}")
-    
-    # 1. Ignorar mensajes propios del bot
-    if message.author == bot.user:
+    if message.author == bot.user or message.channel.id not in CANALES_ESPEJO:
         return
 
-    # 2. Verificar si el canal está en el mapeo
-    if message.channel.id not in CANALES_ESPEJO:
-        return
-
-    print(f"DEBUG: ¡Canal de origen válido! Procesando embed...")
-
-    # 3. Validar que contenga Embeds
-    if not message.embeds:
-        return
-
-    try:
-        for embed in message.embeds:
+    if message.embeds:
+        try:
+            embed = message.embeds[0]
             nuevo_embed = embed.copy()
-            embed_texto = str(embed.to_dict()).replace('%2C', ',')
+            texto = str(embed.to_dict())
             
-            lat_f = None
-            lon_f = None
-
-            # Búsqueda universal de coordenadas en cualquier formato
-            coords_match = re.search(r'(?:q|center|query|loc|11)=(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
-            if not coords_match:
-                coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
-
-            if coords_match:
-                try:
-                    lat_f = float(coords_match.group(1))
-                    lon_f = float(coords_match.group(2))
-                except Exception:
-                    pass
-
-            # Generar el mapa estático si existen coordenadas
-            if lat_f is not None and lon_f is not None:
-                try:
-                    c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
-                    c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
-
-                    # Estructura GeoJSON optimizada para Mapbox
-                    geojson_data = {
-                        "type": "FeatureCollection",
-                        "features": [
-                            {
-                                "type": "Feature",
-                                "properties": {"fill": "#0000FF", "fill-opacity": 0.1, "stroke": "#0000FF", "stroke-width": 2},
-                                "geometry": {"type": "Polygon", "coordinates": [c80]}
-                            },
-                            {
-                                "type": "Feature",
-                                "properties": {"fill": "#FF0000", "fill-opacity": 0.1, "stroke": "#FF0000", "stroke-width": 2},
-                                "geometry": {"type": "Polygon", "coordinates": [c40]}
-                            },
-                            {
-                                "type": "Feature",
-                                "properties": {"marker-size": "large", "marker-symbol": "marker", "marker-color": "#FF0000"},
-                                "geometry": {"type": "Point", "coordinates": [round(lon_f, 6), round(lat_f, 6)]}
-                            }
-                        ]
-                    }
-
-                    # Codificar el GeoJSON de forma segura para evitar URLs gigantescas
-                    geojson_string = urllib.parse.quote(json.dumps(geojson_data))
-
-                    # URL final de Mapbox con estilo Light, alta definición @2x y círculos integrados
-                    map_url = (
-                        f"https://api.mapbox.com/styles/v1/mapbox/light-v11/static/"
-                        f"geojson({geojson_string})/"
-                        f"{lon_f},{lat_f},16,0,0/600x300@2x"
-                        f"?access_token={MAPS_KEY}"
-                    )
-
-                    nuevo_embed.set_image(url=map_url)
-                except Exception as map_err:
-                    print(f"Error generando mapa: {map_err}")
-
-            # Obtención ultra segura del canal destino
-            canal_destino_id = CANALES_ESPEJO[message.channel.id]
-            canal_destino = bot.get_channel(canal_destino_id)
-
-            if not canal_destino:
-                try:
-                    canal_destino = await bot.fetch_channel(canal_destino_id)
-                except Exception as fetch_err:
-                    print(f"Error obteniendo canal {canal_destino_id}: {fetch_err}")
-
-            # Reenviar el mensaje al canal duplicado
+            coords = re.search(r'(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)', texto)
+            if coords:
+                lat, lon = float(coords.group(1)), float(coords.group(2))
+                c40 = hacer_circulo_perfecto(lat, lon, 40)
+                c80 = hacer_circulo_perfecto(lat, lon, 80)
+                
+                geo = {"type": "FeatureCollection", "features": [
+                    {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [c80]}, "properties": {"stroke": "#0000FF"}},
+                    {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [c40]}, "properties": {"stroke": "#FF0000"}}
+                ]}
+                
+                url_map = f"https://api.mapbox.com/styles/v1/mapbox/light-v11/static/geojson({urllib.parse.quote(json.dumps(geo))})/{lon},{lat},16,0,0/600x300@2x?access_token={os.environ.get('MAPBOX_API_KEY')}"
+                nuevo_embed.set_image(url=url_map)
+            
+            canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
             if canal_destino:
                 await canal_destino.send(embed=nuevo_embed)
-                print(f"¡Mensaje reenviado con éxito al canal {canal_destino_id}!")
+        except Exception as e:
+            print(f"Error: {e}")
 
-    except Exception as e:
-        print(f"Error general procesando mensaje: {e}")
-
-# 3. Arrancar servidor web y conectar el bot a Discord de forma sincronizada
 if __name__ == '__main__':
-    keep_alive()
     bot.run(os.environ['DISCORD_TOKEN'])
