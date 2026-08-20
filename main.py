@@ -36,7 +36,7 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('GEOAPIFY_API_KEY')
 
-# FÓRMULA MATEMÁTICA EXACTA PARA CÍRCULOS EN METROS
+# FÓRMULA CORREGIDA: Los puntos ahora se unen con '|' (exigido por Geoapify)
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
@@ -51,7 +51,7 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
         lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2)
         
         pts.append(f"{lon_i:.6f},{lat_i:.6f}")
-    return ",".join(pts)
+    return "|".join(pts)  # <--- CORREGIDO: Separado por pipe (|) en vez de coma
 
 @bot.event
 async def on_message(message):
@@ -75,7 +75,6 @@ async def on_message(message):
             lon_f = float(coords_match.group(2))
 
         if lat_f is not None and lon_f is not None:
-            # Generación exacta de los círculos en metros mediante polylines adaptadas a Geoapify
             c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
             c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
             
