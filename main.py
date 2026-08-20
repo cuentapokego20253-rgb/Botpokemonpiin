@@ -36,13 +36,12 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('GEOAPIFY_API_KEY')
 
-# FÓRMULA OPTIMIZADA: Salto de 30 para evitar URLs gigantescas que Discord bloquea
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
     cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
     pts = []
-    for a in range(0, 361, 30):  # <--- Salto de 30 para acortar la URL de forma segura
+    for a in range(0, 361, 30):
         rad = math.radians(a)
         x = cx + radio_metros * math.cos(rad)
         y = cy + radio_metros * math.sin(rad)
@@ -51,7 +50,7 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
         lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2)
         
         pts.append(f"{lon_i:.6f},{lat_i:.6f}")
-    return "|".join(pts)
+    return ",".join(pts)
 
 @bot.event
 async def on_message(message):
@@ -65,7 +64,6 @@ async def on_message(message):
         lat_f = None
         lon_f = None
         
-        # Regex original intacta
         coords_match = re.search(r'(?:q|center|query|loc|ll)=?(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
         if not coords_match:
             coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
@@ -78,14 +76,13 @@ async def on_message(message):
             c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
             c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
             
-            # URL compacta y segura para Geoapify y Discord
+            # UNIÓN CORRECTA: Un solo parámetro 'geometry' con los dos linestrings separados por '|'
             map_url = (
                 f"https://maps.geoapify.com/v1/staticmap?"
                 f"style=osm-bright&width=600&height=300&"
                 f"center=lonlat:{lon_f},{lat_f}&zoom=15&"
                 f"marker=lonlat:{lon_f},{lat_f};color=%23ff0000;size:large&"
-                f"geometry=linestring:{c40};linecolor=%23ff0000;linewidth:2|"
-                f"geometry=linestring:{c80};linecolor=%230000ff;linewidth:2&"
+                f"geometry=linestring:{c40};linecolor=%23ff0000;linewidth:2|linestring:{c80};linecolor=%230000ff;linewidth:2&"
                 f"apiKey={MAPS_KEY}"
             )
             print(f"DEBUG URL: {map_url}")
