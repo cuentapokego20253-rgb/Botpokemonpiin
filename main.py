@@ -2,6 +2,8 @@ import os
 import discord
 import re
 import math
+import json
+import urllib.parse
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
@@ -28,7 +30,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales (Tus canales configurados)
+# Mapeo de Canales (Tus 7 canales configurados)
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -41,7 +43,7 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('MAPBOX_API_KEY')
 
-# FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
+# FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS (Tu lógica intacta)
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
@@ -85,9 +87,9 @@ async def on_message(message):
             lon_f = None
 
             # Búsqueda universal de coordenadas en cualquier formato
-            coords_match = re.search(r'(?:q|center|query|loc|11)=(?-?d{1,2}\.\d+)\s*,\s*(?-?d{1,3}\.\d+)', embed_texto)
+            coords_match = re.search(r'(?:q|center|query|loc|11)=(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'(?-?d{1,2}\.\d{3,})\s*,\s*(?-?d{1,3}\.\d{3,})', embed_texto)
+                coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
 
             if coords_match:
                 try:
@@ -102,22 +104,35 @@ async def on_message(message):
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
-                    # Estructura GeoJSON compacta para Mapbox (Círculo 80m, Círculo 40m y Pin rojo)
-                    geojson_overlay = (
-                        'geojson({'
-                        '\'type\':\'FeatureCollection\','
-                        '\'features\':['
-                        '{\'' 'type\':\'Feature\',\'properties\':{\'fill\':\'#0000FF\',\'fill-opacity\':0.1,\'stroke\':\'#0000FF\',\'stroke-width\':2},\'geometry\':{\'type\':\'Polygon\',\'coordinates\':[' + str(c80) + ']}},'
-                        '{\'' 'type\':\'Feature\',\'properties\':{\'fill\':\'#FF0000\',\'fill-opacity\':0.1,\'stroke\':\'#FF0000\',\'stroke-width\':2},\'geometry\':{\'type\':\'Polygon\',\'coordinates\':[' + str(c40) + ']}},'
-                        '{\'' 'type\':\'Feature\',\'properties\':{\'marker-size\':\'large\',\'marker-symbol\':\'marker\',\'marker-color\':\'#FF0000\'},\'geometry\':{\'type\':\'Point\',\'coordinates\':[' + str(round(lon_f, 6)) + ',' + str(round(lat_f, 6)) + ']}}'
-                        ']'
-                        '})'
-                    )
+                    # Estructura GeoJSON optimizada para Mapbox (Incluye círculos y pin sin hacer la URL infinita)
+                    geojson_data = {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "properties": {"fill": "#0000FF", "fill-opacity": 0.1, "stroke": "#0000FF", "stroke-width": 2},
+                                "geometry": {"type": "Polygon", "coordinates": [c80]}
+                            },
+                            {
+                                "type": "Feature",
+                                "properties": {"fill": "#FF0000", "fill-opacity": 0.1, "stroke": "#FF0000", "stroke-width": 2},
+                                "geometry": {"type": "Polygon", "coordinates": [c40]}
+                            },
+                            {
+                                "type": "Feature",
+                                "properties": {"marker-size": "large", "marker-symbol": "marker", "marker-color": "#FF0000"},
+                                "geometry": {"type": "Point", "coordinates": [round(lon_f, 6), round(lat_f, 6)]}
+                            }
+                        ]
+                    }
 
-                    # URL optimizada para Mapbox Static Images (Modo Claro / Light)
+                    # Codificar el GeoJSON de forma segura para que Mapbox lo procese sin romper el límite de Discord
+                    geojson_string = urllib.parse.quote(json.dumps(geojson_data))
+
+                    # URL final de Mapbox con estilo Light, alta definición @2x y los círculos integrados
                     map_url = (
                         f"https://api.mapbox.com/styles/v1/mapbox/light-v11/static/"
-                        f"{geojson_overlay}/"
+                        f"geojson({geojson_string})/"
                         f"{lon_f},{lat_f},16,0,0/600x300@2x"
                         f"?access_token={MAPS_KEY}"
                     )
