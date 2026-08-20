@@ -2,8 +2,6 @@ import os
 import discord
 import re
 import math
-import io
-import aiohttp
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
@@ -32,6 +30,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Mapeo de Canales
 CANALES_ESPEJO = {
+    
     1522694582171599011: 1522738552587157536, # ID 100-A      100-B
     1522694783280349345: 1523963115467837480, # ID 0-A        0-B
     1522707464150192230: 1523964283484901476, # Copa500 A     Copa 500 B
@@ -40,7 +39,6 @@ CANALES_ESPEJO = {
     1522711485586079895: 1525184002011431082, # Pokes Raro A  Pokes Raro B
     1522728127565140008: 1525183874852978728  # Keckleon A    Keckleon B
 }
-
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # FUNCIÓN PARA HACER LOS CÍRCULOS PERFECTOS (Fuera y ordenada)
@@ -98,8 +96,6 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            archivo_mapa = None  # Variable para guardar la foto en memoria
-
             # Si se obtuvieron coordenadas válidas, generar el mapa estático
             if lat_f is not None and lon_f is not None:
                 try:
@@ -117,18 +113,7 @@ async def on_message(message):
                         f"&path=color:0x0000FF%7Cweight:2{c80}"
                         f"&key={MAPS_KEY}"
                     )
-                    
-                    # MEJORA "10 DE 10": Tu bot descarga la imagen en milisegundos y la aloja en memoria RAM
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(map_url) as resp:
-                            if resp.status == 200:
-                                imagen_bytes = await resp.read()
-                                archivo_mapa = discord.File(io.BytesIO(imagen_bytes), filename="mapa.png")
-                                nuevo_embed.set_image(url="attachment://mapa.png")
-                            else:
-                                # Respaldo antiguo por si falla Google: Pone la URL directo
-                                nuevo_embed.set_image(url=map_url)
-                                
+                    nuevo_embed.set_image(url=map_url)
                 except Exception as map_err:
                     print(f"Error generando el mapa: {map_err}")
 
@@ -136,15 +121,11 @@ async def on_message(message):
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
             if canal_destino:
-                # Si bajamos el mapa con éxito, lo mandamos como adjunto. Si no, se manda normal.
-                if archivo_mapa:
-                    await canal_destino.send(embed=nuevo_embed, file=archivo_mapa)
-                else:
-                    await canal_destino.send(embed=nuevo_embed)
+                await canal_destino.send(embed=nuevo_embed)
 
     except Exception as e:
         print(f"Error general procesando el mensaje: {e}")
 
 # Iniciar servidor web y conectar el bot a Discord
 keep_alive()
-bot.run(os.environ.get('DISCORD_TOKEN'))
+bot.run(os.environ['DISCORD_TOKEN'])
