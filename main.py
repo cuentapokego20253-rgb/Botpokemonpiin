@@ -73,7 +73,7 @@ async def on_message(message):
 
         canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
         if canal_destino:
-            await canal_destino.send(embed=nuevo_embed) 
+            await canal_destino.send(embed=nuevo_embed)
 
 keep_alive()
 bot.run(os.environ['DISCORD_TOKEN'])
