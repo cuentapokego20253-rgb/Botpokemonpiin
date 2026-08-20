@@ -8,22 +8,22 @@ from discord.ext import commands
 from flask import Flask
 from threading import Thread
 
-# Servidor Flask para mantener vivo el proceso en Render
+# 1. Configurar Flask para mantener el servicio activo en Render
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Bot activo y funcionando"
 
-def run():
+def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
-    t = Thread(target=run)
+    t = Thread(target=run_flask)
     t.daemon = True
     t.start()
 
-# Configuración de Intenciones de Discord
+# 2. Configuración de Intenciones de Discord
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
@@ -62,10 +62,12 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
 
 @bot.event
 async def on_ready():
-    print(f'Bot iniciado con éxito como {bot.user}')
+    print(f'>>> ¡BOT CONECTADO CON ÉXITO COMO {bot.user}! <<<')
 
 @bot.event
 async def on_message(message):
+    print(f"DEBUG: Mensaje detectado en canal {message.channel.id}")
+    
     # 1. Ignorar mensajes propios del bot
     if message.author == bot.user:
         return
@@ -73,6 +75,8 @@ async def on_message(message):
     # 2. Verificar si el canal está en el mapeo
     if message.channel.id not in CANALES_ESPEJO:
         return
+
+    print(f"DEBUG: ¡Canal de origen válido! Procesando embed...")
 
     # 3. Validar que contenga Embeds
     if not message.embeds:
@@ -104,7 +108,7 @@ async def on_message(message):
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
-                    # Estructura GeoJSON optimizada para Mapbox (Incluye círculos y pin sin hacer la URL infinita)
+                    # Estructura GeoJSON optimizada para Mapbox
                     geojson_data = {
                         "type": "FeatureCollection",
                         "features": [
@@ -126,10 +130,10 @@ async def on_message(message):
                         ]
                     }
 
-                    # Codificar el GeoJSON de forma segura para que Mapbox lo procese sin romper el límite de Discord
+                    # Codificar el GeoJSON de forma segura para evitar URLs gigantescas
                     geojson_string = urllib.parse.quote(json.dumps(geojson_data))
 
-                    # URL final de Mapbox con estilo Light, alta definición @2x y los círculos integrados
+                    # URL final de Mapbox con estilo Light, alta definición @2x y círculos integrados
                     map_url = (
                         f"https://api.mapbox.com/styles/v1/mapbox/light-v11/static/"
                         f"geojson({geojson_string})/"
@@ -154,10 +158,12 @@ async def on_message(message):
             # Reenviar el mensaje al canal duplicado
             if canal_destino:
                 await canal_destino.send(embed=nuevo_embed)
+                print(f"¡Mensaje reenviado con éxito al canal {canal_destino_id}!")
 
     except Exception as e:
         print(f"Error general procesando mensaje: {e}")
 
-# Iniciar servidor web y conectar el bot a Discord
-keep_alive()
-bot.run(os.environ['DISCORD_TOKEN'])
+# 3. Arrancar servidor web y conectar el bot a Discord de forma sincronizada
+if _name_ == '_main_':
+    keep_alive()
+    bot.run(os.environ['DISCORD_TOKEN'])
