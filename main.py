@@ -3,6 +3,8 @@ import asyncio
 import discord
 import re
 import math
+import io
+import requests
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
@@ -83,7 +85,7 @@ async def on_message(message):
             lat_f = None
             lon_f = None
 
-            # Tu regex original EXACTA, sin cambios
+            # Tu regex original EXACTA, sin alteraciones
             coords_match = re.search(r'(?:qlcenter|query|loc|ll)=(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
             if not coords_match:
                 coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
@@ -95,27 +97,34 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            # Aquí se insertaron los 3 intentos, nada más
+            archivo_mapa = None
+
+            # Generación segura de la imagen para asegurar el 10/10
             if lat_f is not None and lon_f is not None:
-                mapa_creado = False
+                c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
+                c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
+                
+                map_url = (
+                    f"https://maps.googleapis.com/maps/api/staticmap?"
+                    f"center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2"
+                    f"&markers=color:red%7C{lat_f},{lon_f}"
+                    f"&path=color:0xFF0000%7Cweight:2{c40}"
+                    f"&path=color:0x0000FF%7Cweight:2{c80}"
+                    f"&key={MAPS_KEY}"
+                )
+
+                # Descargamos la imagen con reintentos en RAM para que Discord la reciba directo
                 for intento in range(3):
                     try:
-                        c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
-                        c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
-                        
-                        map_url = (
-                            f"https://maps.googleapis.com/maps/api/staticmap?"
-                            f"center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2"
-                            f"&markers=color:red%7C{lat_f},{lon_f}"
-                            f"&path=color:0xFF0000%7Cweight:2{c40}"
-                            f"&path=color:0x0000FF%7Cweight:2{c80}"
-                            f"&key={MAPS_KEY}"
-                        )
-                        nuevo_embed.set_image(url=map_url)
-                        mapa_creado = True
-                        break # Si sale bien, para
+                        response = requests.get(map_url, timeout=10)
+                        if response.status_code == 200:
+                            imagen_bytes = io.BytesIO(response.content)
+                            archivo_mapa = discord.File(imagen_bytes, filename="mapa.png")
+                            nuevo_embed.set_image(url="attachment://mapa.png")
+                            break
                     except Exception:
-                        await asyncio.sleep(1) # Espera 1s y reintenta
+                        if intento < 2:
+                            await asyncio.sleep(1)
 
             # Obtención ultra segura del canal destino
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
@@ -127,9 +136,12 @@ async def on_message(message):
                 except Exception as fetch_err:
                     print(f"Error obteniendo canal {canal_destino_id}: {fetch_err}")
 
-            # Reenviar el mensaje al canal duplicado
+            # Reenviar el mensaje al canal duplicado con su archivo adjunto si está disponible
             if canal_destino:
-                await canal_destino.send(embed=nuevo_embed)
+                if archivo_mapa:
+                    await canal_destino.send(embed=nuevo_embed, file=archivo_mapa)
+                else:
+                    await canal_destino.send(embed=nuevo_embed)
 
     except Exception as e:
         print(f"Error general procesando mensaje: {e}")
