@@ -42,7 +42,7 @@ CANALES_ESPEJO = {
 # Llave API de Geoapify
 MAPS_KEY = os.environ.get('GEOAPIFY_API_KEY')
 
-# FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS (Adaptada para Geoapify)
+# FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
@@ -54,8 +54,8 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
         y = cy + radio_metros * math.sin(rad)
         lon_i = math.degrees(x / R)
         lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2.0)
-        pts.append(f"{lat_i:.6f},{lon_i:.6f}")
-    return "|".join(pts)
+        pts.append(f"|{lat_i:.6f},{lon_i:.6f}")
+    return "".join(pts)
 
 @bot.event
 async def on_ready():
@@ -101,13 +101,14 @@ async def on_message(message):
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
+                    # Se usa 'path' que es el parámetro exacto que acepta Geoapify para trazos
                     map_url = (
                         f"https://maps.geoapify.com/v1/staticmap?"
                         f"style=osm-bright&width=600&height=300&scale=2&"
                         f"center=lon:{lon_f},lat:{lat_f}&zoom=16&"
                         f"marker=lon:{lon_f},lat:{lat_f};color:%23ff0000;size:large&"
-                        f"polyline=color:%23ff0000|width:2|{c40}&"
-                        f"polyline=color:%230000ff|width:2|{c80}&"
+                        f"path=color:%23ff0000|width:2{c40}&"
+                        f"path=color:%230000ff|width:2{c80}&"
                         f"apiKey={MAPS_KEY}"
                     )
                     nuevo_embed.set_image(url=map_url)
