@@ -164,6 +164,6 @@ async def on_message(message):
         print(f"Error general procesando mensaje: {e}")
 
 # 3. Arrancar servidor web y conectar el bot a Discord de forma sincronizada
-if _name_ == '_main_':
+if __name__ == '__main__':
     keep_alive()
     bot.run(os.environ['DISCORD_TOKEN'])
