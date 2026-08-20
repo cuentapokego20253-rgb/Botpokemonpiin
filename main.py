@@ -29,7 +29,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales (Tus 7 canales configurados)
+# Mapeo de Canales
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -83,10 +83,10 @@ async def on_message(message):
             lat_f = None
             lon_f = None
 
-            # Búsqueda universal de coordenadas en cualquier formato
-            coords_match = re.search(r'(?:q|center|query|loc|ll)=(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
+            # Búsqueda segura y equilibrada (acepta de 2 decimales en adelante para evitar falsos positivos)
+            coords_match = re.search(r'(?:qlcenter|query|loc|ll)=(-?\d{1,2}\.\d{2,})\s*,\s*(-?\d{1,3}\.\d{2,})', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
+                coords_match = re.search(r'(-?\d{1,2}\.\d{2,})\s*,\s*(-?\d{1,3}\.\d{2,})', embed_texto)
 
             if coords_match:
                 try:
@@ -95,7 +95,7 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            # Generar el mapa estático con sistema de reintentos si existen coordenadas
+            # Generar el mapa estático con sistema de 3 reintentos si existen coordenadas
             if lat_f is not None and lon_f is not None:
                 mapa_exitoso = False
                 for intento in range(3):
@@ -118,11 +118,11 @@ async def on_message(message):
                         print(f"Intento {intento + 1} fallido generando mapa: {map_err}")
                         if intento < 2:
                             await asyncio.sleep(1)  # Espera 1 segundo antes de reintentar
-                
+
                 if not mapa_exitoso:
                     print("Aviso: No se pudo generar el mapa tras 3 intentos, se enviará el embed sin mapa.")
 
-            # Obtención ultra segura del canal destino
+            # Obtención segura del canal destino
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
 
