@@ -36,13 +36,13 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('GEOAPIFY_API_KEY')
 
-# FÓRMULA CORREGIDA: Los puntos ahora se unen con '|' (exigido por Geoapify)
+# FÓRMULA OPTIMIZADA: Salto de 30 para evitar URLs gigantescas que Discord bloquea
 def hacer_circulo_perfecto(lat, lon, radio_metros):
     R = 6378137.0
     cx = math.radians(lon) * R
     cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
     pts = []
-    for a in range(0, 361, 15):
+    for a in range(0, 361, 30):  # <--- Salto de 30 para acortar la URL de forma segura
         rad = math.radians(a)
         x = cx + radio_metros * math.cos(rad)
         y = cy + radio_metros * math.sin(rad)
@@ -51,7 +51,7 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
         lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2)
         
         pts.append(f"{lon_i:.6f},{lat_i:.6f}")
-    return "|".join(pts)  # <--- CORREGIDO: Separado por pipe (|) en vez de coma
+    return "|".join(pts)
 
 @bot.event
 async def on_message(message):
@@ -78,13 +78,14 @@ async def on_message(message):
             c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
             c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
             
+            # URL compacta y segura para Geoapify y Discord
             map_url = (
                 f"https://maps.geoapify.com/v1/staticmap?"
                 f"style=osm-bright&width=600&height=300&"
                 f"center=lonlat:{lon_f},{lat_f}&zoom=15&"
                 f"marker=lonlat:{lon_f},{lat_f};color=%23ff0000;size:large&"
-                f"geometry=polyline:{c40};linecolor=%23ff0000;linewidth:2;fillopacity=0|"
-                f"polyline:{c80};linecolor=%230000ff;linewidth:2;fillopacity=0&"
+                f"geometry=linestring:{c40};linecolor=%23ff0000;linewidth:2|"
+                f"geometry=linestring:{c80};linecolor=%230000ff;linewidth:2&"
                 f"apiKey={MAPS_KEY}"
             )
             print(f"DEBUG URL: {map_url}")
