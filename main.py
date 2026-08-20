@@ -4,7 +4,7 @@ import discord
 import re
 import math
 import io
-import requests
+import urllib.request
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
@@ -99,7 +99,7 @@ async def on_message(message):
 
             archivo_mapa = None
 
-            # Generación segura de la imagen para asegurar el 10/10
+            # Generación segura de la imagen usando herramientas nativas de Python
             if lat_f is not None and lon_f is not None:
                 c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                 c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
@@ -113,15 +113,15 @@ async def on_message(message):
                     f"&key={MAPS_KEY}"
                 )
 
-                # Descargamos la imagen con reintentos en RAM para que Discord la reciba directo
+                # Descarga segura con reintentos usando urllib (nativo, sin errores de librerías externas)
                 for intento in range(3):
                     try:
-                        response = requests.get(map_url, timeout=10)
-                        if response.status_code == 200:
-                            imagen_bytes = io.BytesIO(response.content)
-                            archivo_mapa = discord.File(imagen_bytes, filename="mapa.png")
-                            nuevo_embed.set_image(url="attachment://mapa.png")
-                            break
+                        with urllib.request.urlopen(map_url, timeout=10) as response:
+                            if response.status == 200:
+                                imagen_bytes = io.BytesIO(response.read())
+                                archivo_mapa = discord.File(imagen_bytes, filename="mapa.png")
+                                nuevo_embed.set_image(url="attachment://mapa.png")
+                                break
                     except Exception:
                         if intento < 2:
                             await asyncio.sleep(1)
