@@ -44,7 +44,7 @@ def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
         angulo = math.radians(float(i) / num_puntos * 360.0)
         dx = radio_metros * math.cos(angulo)
         dy = radio_metros * math.sin(angulo)
-        factor_correccion = 1.5 
+        factor_correccion = 1.6 
         d_lat = ((dy / radio_tierra) * (180.0 / math.pi)) / factor_correccion
         d_lon = ((dx / (radio_tierra * math.cos(math.radians(lat)))) * (180.0 / math.pi)) / factor_correccion
         
@@ -86,8 +86,8 @@ async def on_message(message):
                 f"style=osm-bright&width=600&height=300&"
                 f"center=lonlat:{lon_f},{lat_f}&zoom=15.7&"
                 f"marker=lonlat:{lon_f},{lat_f};color:%23ff0000;size:large&"
-                f"geometry=polygon:{c40};linewidth:2;linecolor:%23ff0000;fillopacity:0|"
-                f"polygon:{c80};linewidth:2;linecolor:%230000ff;fillopacity:0&"
+                f"geometry=polygon:{c40};linewidth:1;linecolor:%23ff0000;fillopacity:0|"
+                f"polygon:{c80};linewidth:1;linecolor:%230000ff;fillopacity:0&"
                 f"apiKey={MAPS_KEY}"
             )
             
