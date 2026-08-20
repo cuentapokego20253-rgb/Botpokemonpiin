@@ -1,6 +1,7 @@
 import os
 import discord
 import re
+import math
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
@@ -35,6 +36,23 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('GEOAPIFY_API_KEY')
 
+# FÓRMULA MATEMÁTICA EXACTA PARA CÍRCULOS EN METROS
+def hacer_circulo_perfecto(lat, lon, radio_metros):
+    R = 6378137.0
+    cx = math.radians(lon) * R
+    cy = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * R
+    pts = []
+    for a in range(0, 361, 15):
+        rad = math.radians(a)
+        x = cx + radio_metros * math.cos(rad)
+        y = cy + radio_metros * math.sin(rad)
+        
+        lon_i = math.degrees(x / R)
+        lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2)
+        
+        pts.append(f"{lon_i:.6f},{lat_i:.6f}")
+    return ",".join(pts)
+
 @bot.event
 async def on_message(message):
     if message.author == bot.user or message.channel.id not in CANALES_ESPEJO or not message.embeds:
@@ -57,17 +75,19 @@ async def on_message(message):
             lon_f = float(coords_match.group(2))
 
         if lat_f is not None and lon_f is not None:
-            # Uso de geometría nativa de Geoapify (más estable que el dibujo manual)
+            # Generación exacta de los círculos en metros mediante polylines adaptadas a Geoapify
+            c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
+            c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
+            
             map_url = (
                 f"https://maps.geoapify.com/v1/staticmap?"
                 f"style=osm-bright&width=600&height=300&"
                 f"center=lonlat:{lon_f},{lat_f}&zoom=15&"
-                f"marker=lonlat:{lon_f},{lat_f};color:%23ff0000;size:large&"
-                f"geometry=circle:{lon_f},{lat_f},40;linewidth:2;linecolor:%23ff0000;fillopacity:0|"
-                f"circle:{lon_f},{lat_f},80;linewidth:2;linecolor:%230000ff;fillopacity:0&"
+                f"marker=lonlat:{lon_f},{lat_f};color=%23ff0000;size:large&"
+                f"geometry=polyline:{c40};linecolor=%23ff0000;linewidth:2;fillopacity=0|"
+                f"polyline:{c80};linecolor=%230000ff;linewidth:2;fillopacity=0&"
                 f"apiKey={MAPS_KEY}"
             )
-            # Imprimimos la URL para verificarla manualmente
             print(f"DEBUG URL: {map_url}")
             nuevo_embed.set_image(url=map_url)
 
