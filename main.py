@@ -28,7 +28,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales (Tus 7 canales configurados)
+# Mapeo de Canales (Tus canales configurados)
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -38,7 +38,8 @@ CANALES_ESPEJO = {
     1522711485586079895: 1525184002011431082,
     1522728127565140008: 1525183874852978728
 }
-MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
+
+MAPS_KEY = os.environ.get('MAPBOX_API_KEY')
 
 # FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
 def hacer_circulo_perfecto(lat, lon, radio_metros):
@@ -52,8 +53,10 @@ def hacer_circulo_perfecto(lat, lon, radio_metros):
         y = cy + radio_metros * math.sin(rad)
         lon_i = math.degrees(x / R)
         lat_i = math.degrees(2 * math.atan(math.exp(y / R)) - math.pi / 2.0)
-        pts.append(f"%7C{lat_i:.6f},{lon_i:.6f}")
-    return "".join(pts)
+        pts.append([round(lon_i, 6), round(lat_i, 6)])
+    if pts:
+        pts.append(pts[0])
+    return pts
 
 @bot.event
 async def on_ready():
@@ -77,14 +80,14 @@ async def on_message(message):
         for embed in message.embeds:
             nuevo_embed = embed.copy()
             embed_texto = str(embed.to_dict()).replace('%2C', ',')
-
+            
             lat_f = None
             lon_f = None
 
             # Búsqueda universal de coordenadas en cualquier formato
-            coords_match = re.search(r'(?:q|center|query|loc|ll)=?(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
+            coords_match = re.search(r'(?:q|center|query|loc|11)=(?-?d{1,2}\.\d+)\s*,\s*(?-?d{1,3}\.\d+)', embed_texto)
             if not coords_match:
-                coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
+                coords_match = re.search(r'(?-?d{1,2}\.\d{3,})\s*,\s*(?-?d{1,3}\.\d{3,})', embed_texto)
 
             if coords_match:
                 try:
@@ -99,14 +102,26 @@ async def on_message(message):
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
                     c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
-                    map_url = (
-                        f"https://maps.googleapis.com/maps/api/staticmap?"
-                        f"center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2"
-                        f"&markers=color:red%7C{lat_f},{lon_f}"
-                        f"&path=color:0xFF0000%7Cweight:2{c40}"
-                        f"&path=color:0x0000FF%7Cweight:2{c80}"
-                        f"&key={MAPS_KEY}"
+                    # Estructura GeoJSON compacta para Mapbox (Círculo 80m, Círculo 40m y Pin rojo)
+                    geojson_overlay = (
+                        'geojson({'
+                        '\'type\':\'FeatureCollection\','
+                        '\'features\':['
+                        '{\'' 'type\':\'Feature\',\'properties\':{\'fill\':\'#0000FF\',\'fill-opacity\':0.1,\'stroke\':\'#0000FF\',\'stroke-width\':2},\'geometry\':{\'type\':\'Polygon\',\'coordinates\':[' + str(c80) + ']}},'
+                        '{\'' 'type\':\'Feature\',\'properties\':{\'fill\':\'#FF0000\',\'fill-opacity\':0.1,\'stroke\':\'#FF0000\',\'stroke-width\':2},\'geometry\':{\'type\':\'Polygon\',\'coordinates\':[' + str(c40) + ']}},'
+                        '{\'' 'type\':\'Feature\',\'properties\':{\'marker-size\':\'large\',\'marker-symbol\':\'marker\',\'marker-color\':\'#FF0000\'},\'geometry\':{\'type\':\'Point\',\'coordinates\':[' + str(round(lon_f, 6)) + ',' + str(round(lat_f, 6)) + ']}}'
+                        ']'
+                        '})'
                     )
+
+                    # URL optimizada para Mapbox Static Images (Modo Claro / Light)
+                    map_url = (
+                        f"https://api.mapbox.com/styles/v1/mapbox/light-v11/static/"
+                        f"{geojson_overlay}/"
+                        f"{lon_f},{lat_f},16,0,0/600x300@2x"
+                        f"?access_token={MAPS_KEY}"
+                    )
+
                     nuevo_embed.set_image(url=map_url)
                 except Exception as map_err:
                     print(f"Error generando mapa: {map_err}")
@@ -114,7 +129,7 @@ async def on_message(message):
             # Obtención ultra segura del canal destino
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
             canal_destino = bot.get_channel(canal_destino_id)
-            
+
             if not canal_destino:
                 try:
                     canal_destino = await bot.fetch_channel(canal_destino_id)
