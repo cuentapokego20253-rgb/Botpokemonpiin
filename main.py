@@ -61,7 +61,7 @@ async def on_message(message):
             map_url = (
                 f"https://maps.geoapify.com/v1/staticmap?"
                 f"style=osm-bright&width=600&height=300&"
-                f"center=lonlat:{lon_f},{lat_f}&zoom=16&"
+                f"center=lonlat:{lon_f},{lat_f}&zoom=15&"
                 f"marker=lonlat:{lon_f},{lat_f};color:%23ff0000;size:large&"
                 f"geometry=circle:{lon_f},{lat_f},40;linewidth:2;linecolor:%23ff0000;fillopacity:0|"
                 f"circle:{lon_f},{lat_f},80;linewidth:2;linecolor:%230000ff;fillopacity:0&"
