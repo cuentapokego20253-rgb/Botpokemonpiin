@@ -34,9 +34,9 @@ CANALES_ESPEJO = {
     1522728127565140008: 1525183874852978728
 }
 
-MAPS_KEY = os.environ.get('GEOAPIFY_API_KEY')
+MAPS_KEY = os.environ.get('MAPTILER_API_KEY')
 
-# --- AQUÍ ESTÁ LA FÓRMULA MATEMÁTICA RESTAURADA ---
+# --- FÓRMULA MATEMÁTICA INTACTA ---
 def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
     coordenadas = []
     radio_tierra = 6378137.0 # Radio de la Tierra en metros
@@ -48,11 +48,11 @@ def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
         d_lat = ((dy / radio_tierra) * (180.0 / math.pi)) / factor_correccion
         d_lon = ((dx / (radio_tierra * math.cos(math.radians(lat)))) * (180.0 / math.pi)) / factor_correccion
         
-        # Geoapify requiere formato "longitud,latitud"
+        # MapTiler requiere formato "longitud,latitud" separado por comas
         coordenadas.append(f"{lon + d_lon:.6f},{lat + d_lat:.6f}")
     
-    return ",".join(coordenadas)
-# --------------------------------------------------
+    return "|".join(coordenadas)
+# ----------------------------------
 
 @bot.event
 async def on_message(message):
@@ -80,15 +80,14 @@ async def on_message(message):
             c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
             c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
-            # Insertamos los polígonos matemáticos en Geoapify
+            # Insertamos los polígonos matemáticos adaptados a MapTiler
             map_url = (
-                f"https://maps.geoapify.com/v1/staticmap?"
-                f"style=osm-bright&width=600&height=300&"
-                f"center=lonlat:{lon_f},{lat_f}&zoom=15.9&"
-                f"marker=lonlat:{lon_f},{lat_f};color:%23ff0000;size:large&"
-                f"geometry=polygon:{c40};linewidth:1;linecolor:%23ff0000;fillopacity:0|"
-                f"polygon:{c80};linewidth:1;linecolor:%230000ff;fillopacity:0&"
-                f"apiKey={MAPS_KEY}"
+                f"https://api.maptiler.com/maps/streets-v2/static/"
+                f"{lon_f},{lat_f},15.7/600x300.png?"
+                f"markers={lon_f},{lat_f}&"
+                f"path=stroke:%23ff0000|width:1|fill:none|{c40}&"
+                f"path=stroke:%230000ff|width:1|fill:none|{c80}&"
+                f"key={MAPS_KEY}"
             )
             
             print(f"DEBUG URL: {map_url}")
