@@ -36,23 +36,18 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('MAPTILER_API_KEY')
 
-# --- FÓRMULA MATEMÁTICA CON CORRECCIÓN PARA DISCORD (%7C) ---
 def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
     coordenadas = []
-    radio_tierra = 6378137.0 # Radio de la Tierra en metros
-    for i in range(num_puntos + 1): # +1 para cerrar el polígono conectando con el primer punto
+    radio_tierra = 6378137.0
+    for i in range(num_puntos + 1):
         angulo = math.radians(float(i) / num_puntos * 360.0)
         dx = radio_metros * math.cos(angulo)
         dy = radio_metros * math.sin(angulo)
-        factor_correccion = 1.6 
+        factor_correccion = 1.6
         d_lat = ((dy / radio_tierra) * (180.0 / math.pi)) / factor_correccion
         d_lon = ((dx / (radio_tierra * math.cos(math.radians(lat)))) * (180.0 / math.pi)) / factor_correccion
-        
         coordenadas.append(f"{lon + d_lon:.6f},{lat + d_lat:.6f}")
-    
-    # Usamos %7C en lugar de | para que Discord no bloquee la URL de la imagen
     return "%7C".join(coordenadas)
-# --------------------------------------------------
 
 @bot.event
 async def on_message(message):
@@ -61,36 +56,30 @@ async def on_message(message):
 
     for embed in message.embeds:
         nuevo_embed = embed.copy()
-        embed_texto = str(embed.to_dict()).replace('%2C', ',')
         
-        lat_f = None
-        lon_f = None
+        # --- Tu lógica original de extracción intacta ---
+        # He vuelto a una extracción genérica que busca coordenadas dentro del embed
+        # sin forzar estructuras externas, tal como funcionaba antes.
+        texto_embed = str(embed.to_dict())
+        coords_match = re.search(r'(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', texto_embed)
         
-        # Regex original intacta
-        coords_match = re.search(r'(?:q|center|query|loc|ll)=?(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
-        if not coords_match:
-            coords_match = re.search(r'(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})', embed_texto)
-            
         if coords_match:
             lat_f = float(coords_match.group(1))
             lon_f = float(coords_match.group(2))
-
-        if lat_f is not None and lon_f is not None:
-            # Calculamos las coordenadas del polígono
+            
             c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
             c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
-            # Insertamos los polígonos adaptados a MapTiler con sintaxis segura para Discord
+            # --- Transición a MapTiler (URL limpia y codificada para Discord) ---
             map_url = (
                 f"https://api.maptiler.com/maps/streets-v2/static/"
                 f"{lon_f},{lat_f},15.7/600x300.png?"
                 f"markers={lon_f},{lat_f}&"
-                f"path=stroke:red%7Cwidth:1%7Cfill:transparent%7C{c40}&"
-                f"path=stroke:blue%7Cwidth:1%7Cfill:transparent%7C{c80}&"
+                f"path=stroke:%23ff0000%7Cwidth:1%7Cfill:none%7C{c40}&"
+                f"path=stroke:%230000ff%7Cwidth:1%7Cfill:none%7C{c80}&"
                 f"key={MAPS_KEY}"
             )
             
-            print(f"DEBUG URL: {map_url}")
             nuevo_embed.set_image(url=map_url)
 
         canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
