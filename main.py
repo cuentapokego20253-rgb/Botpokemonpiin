@@ -36,7 +36,7 @@ CANALES_ESPEJO = {
 
 MAPS_KEY = os.environ.get('MAPTILER_API_KEY')
 
-# --- FÓRMULA MATEMÁTICA INTACTA ---
+# --- FÓRMULA MATEMÁTICA CON CORRECCIÓN PARA DISCORD (%7C) ---
 def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
     coordenadas = []
     radio_tierra = 6378137.0 # Radio de la Tierra en metros
@@ -48,11 +48,11 @@ def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
         d_lat = ((dy / radio_tierra) * (180.0 / math.pi)) / factor_correccion
         d_lon = ((dx / (radio_tierra * math.cos(math.radians(lat)))) * (180.0 / math.pi)) / factor_correccion
         
-        # MapTiler requiere formato "longitud,latitud" separado por comas
         coordenadas.append(f"{lon + d_lon:.6f},{lat + d_lat:.6f}")
     
-    return "|".join(coordenadas)
-# ----------------------------------
+    # Usamos %7C en lugar de | para que Discord no bloquee la URL de la imagen
+    return "%7C".join(coordenadas)
+# --------------------------------------------------
 
 @bot.event
 async def on_message(message):
@@ -80,13 +80,13 @@ async def on_message(message):
             c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
             c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
-            # Insertamos los polígonos matemáticos adaptados a MapTiler
+            # Insertamos los polígonos adaptados a MapTiler con sintaxis segura para Discord
             map_url = (
                 f"https://api.maptiler.com/maps/streets-v2/static/"
                 f"{lon_f},{lat_f},15.7/600x300.png?"
                 f"markers={lon_f},{lat_f}&"
-                f"path=stroke:%23ff0000|width:1|fill:none|{c40}&"
-                f"path=stroke:%230000ff|width:1|fill:none|{c80}&"
+                f"path=stroke:red%7Cwidth:1%7Cfill:transparent%7C{c40}&"
+                f"path=stroke:blue%7Cwidth:1%7Cfill:transparent%7C{c80}&"
                 f"key={MAPS_KEY}"
             )
             
