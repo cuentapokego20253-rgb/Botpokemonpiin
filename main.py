@@ -75,16 +75,17 @@ async def on_message(message):
             c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
             c80 = hacer_circulo_perfecto(lat_f, lon_f, 80)
 
+            # Sintaxis corregida y limpia para MapTiler Static Maps
             map_url = (
                 f"https://api.maptiler.com/maps/streets-v2/static/"
                 f"{lon_f},{lat_f},15.7/600x300.png?"
                 f"markers={lon_f},{lat_f}&"
-                f"path=stroke:%23ff0000%7Cwidth:1%7Cfill:none%7C{c40}&"
-                f"path=stroke:%230000ff%7Cwidth:1%7Cfill:none%7C{c80}&"
+                f"path=stroke:ff0000%7Cwidth:2%7C{c40}&"
+                f"path=stroke:0000ff%7Cwidth:2%7C{c80}&"
                 f"key={MAPS_KEY}"
             )
             
-            print(f"DEBUG URL: {map_url}")
+            print(f"DEBUG URL MAPTILER: {map_url}")
             nuevo_embed.set_image(url=map_url)
 
         canal_destino = bot.get_channel(CANALES_ESPEJO[message.channel.id])
