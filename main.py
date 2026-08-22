@@ -132,7 +132,7 @@ async def on_message(message):
 
             map_url = (
                 f"https://api.mapbox.com/styles/v1/mapbox/{MAPBOX_STYLE}/static/"
-                f"{overlays}/{lon_f:.6f},{lat_f:.6f},16.2/600x300@2x"
+                f"{overlays}/{lon_f:.6f},{lat_f:.6f},16.5/600x300@2x"
                 f"?access_token={MAPS_KEY}"
             )
 
