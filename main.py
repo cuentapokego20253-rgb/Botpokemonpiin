@@ -40,7 +40,7 @@ MAPS_KEY = os.environ.get('MAPBOX_ACCESS_TOKEN')
 MAPBOX_STYLE = os.environ.get('MAPBOX_STYLE', 'streets-v12')  # el estilo visualmente más parecido a Google Maps
 
 # --- FÓRMULA MATEMÁTICA RESTAURADA (sin ningún cambio en la matemática) ---
-def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
+def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=100):
     puntos = []
     radio_tierra = 6378137.0  # Radio de la Tierra en metros
     for i in range(num_puntos + 1):  # +1 para cerrar el polígono conectando con el primer punto
@@ -132,7 +132,7 @@ async def on_message(message):
 
             map_url = (
                 f"https://api.mapbox.com/styles/v1/mapbox/{MAPBOX_STYLE}/static/"
-                f"{overlays}/{lon_f:.6f},{lat_f:.6f},15.7/600x300"
+                f"{overlays}/{lon_f:.6f},{lat_f:.6f},15.7/600x300@2x"
                 f"?access_token={MAPS_KEY}"
             )
 
