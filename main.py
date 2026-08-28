@@ -2,6 +2,9 @@ import os
 import discord
 import re
 import math
+import io
+import asyncio
+import aiohttp
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
@@ -28,7 +31,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales (Tus 7 canales configurados)
+# Mapeo de Canales (9 canales configurados)
 CANALES_ESPEJO = {
     1522694582171599011: 1522738552587157536,
     1522694783280349345: 1523963115467837480,
@@ -61,6 +64,29 @@ def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
         pts.append(f"%7C{lat + d_lat:.6f},{lon + d_lon:.6f}")
     return "".join(pts)
 
+# Descarga la imagen del mapa con reintentos, en vez de dejar que Discord
+# la busque por su cuenta. Así cada mapa entregado con éxito cuenta como
+# 1 petición a Google, no 2 (antes: 1 de validación + 1 de caché por
+# parte de Discord). Si los 3 intentos fallan, la notificación se manda
+# igual, sin imagen — nunca se cae el bot por esto.
+async def descargar_mapa_con_reintentos(map_url, intentos=3):
+    for intento in range(1, intentos + 1):
+        try:
+            async with aiohttp.ClientSession() as session:
+                timeout = aiohttp.ClientTimeout(total=5)
+                async with session.get(map_url, timeout=timeout) as resp:
+                    if resp.status == 200:
+                        data = await resp.read()
+                        return io.BytesIO(data)
+                    else:
+                        print(f"DEBUG mapa intento {intento}: Google respondió status {resp.status}")
+        except Exception as e:
+            print(f"DEBUG mapa intento {intento} falló: {e}")
+        if intento < intentos:
+            await asyncio.sleep(1.5)
+    print("DEBUG mapa: se agotaron los 3 intentos, se envía sin imagen")
+    return None
+
 @bot.event
 async def on_ready():
     print(f'Bot iniciado con éxito como {bot.user}')
@@ -86,6 +112,7 @@ async def on_message(message):
 
             lat_f = None
             lon_f = None
+            archivo_mapa = None
 
             # Búsqueda universal de coordenadas en cualquier formato
             coords_match = re.search(r'(?:q|center|query|loc|ll)=?(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)', embed_texto)
@@ -114,7 +141,10 @@ async def on_message(message):
                         f"&key={MAPS_KEY}"
                     )
                     print(f"DEBUG URL: {map_url}")
-                    nuevo_embed.set_image(url=map_url)
+                    imagen_bytes = await descargar_mapa_con_reintentos(map_url)
+                    if imagen_bytes:
+                        archivo_mapa = discord.File(imagen_bytes, filename="mapa.png")
+                        nuevo_embed.set_image(url="attachment://mapa.png")
                 except Exception as map_err:
                     print(f"Error generando mapa: {map_err}")
 
@@ -130,7 +160,10 @@ async def on_message(message):
 
             # Reenviar el mensaje al canal duplicado
             if canal_destino:
-                await canal_destino.send(embed=nuevo_embed)
+                if archivo_mapa:
+                    await canal_destino.send(embed=nuevo_embed, file=archivo_mapa)
+                else:
+                    await canal_destino.send(embed=nuevo_embed)
 
     except Exception as e:
         print(f"Error general procesando mensaje: {e}")
