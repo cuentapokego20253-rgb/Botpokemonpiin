@@ -30,14 +30,14 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Mapeo de Canales (Tus 7 canales configurados)
 CANALES_ESPEJO = {
-    1522694582171599011: 1522738552587157536,
-    1522694783280349345: 1523963115467837480,
-    1522695765301133312: 1523907438590296064,
-    1522695933031219491: 1523907697936826392,
-    1522707464150192230: 1523964283484901476,
-    1522711485586079895: 1525184002011431082,
-    1522728127565140008: 1525183874852978728
-}
+    1522694582171599011: 1522738552587157536, # ID 100-A      100-B
+    1522694783280349345: 1523963115467837480, # ID 0-A        0-B
+    1522707464150192230: 1523964283484901476, # Copa500 A     Copa 500 B
+    1522695765301133312: 1523907438590296064, # Liga Super A  Liga super B
+    1522695933031219491: 1523907697936826392, # Liga Ultra A  Liga Utra B
+    1522711485586079895: 1525184002011431082, # Pokes Raro A  Pokes Raro B
+    1522728127565140008: 1525183874852978728  # Keckleon A    Keckleon B
+  }
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
@@ -105,7 +105,7 @@ async def on_message(message):
 
                     map_url = (
                         f"https://maps.googleapis.com/maps/api/staticmap?"
-                        f"center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2"
+                        f"center={lat_f},{lon_f}&zoom=17&size=600x300&scale=2"
                         f"&markers=color:red%7C{lat_f},{lon_f}"
                         f"&path=color:0xFF0000%7Cweight:2{c40}"
                         f"&path=color:0x0000FF%7Cweight:2{c80}"
