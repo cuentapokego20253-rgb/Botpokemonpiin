@@ -28,7 +28,7 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Mapeo de Canales (Tus 7 canales configurados)
+# Mapeo de Canales (Tus 9 canales configurados)
 CANALES_ESPEJO = {
     1552509377099989113: 1552515652185493564, # ID 100-A      100-B
     1552509737688629288: 1552515715288793288, # ID 0-A        0-B
