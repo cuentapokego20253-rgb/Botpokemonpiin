@@ -41,6 +41,11 @@ CANALES_ESPEJO = {
   }
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
+# ID del servidor B (el antiguo). El bot se sale solo apenas arranca.
+# Cómo conseguirlo: Modo Desarrollador activado en Discord > clic derecho
+# sobre el ícono del servidor B > "Copiar ID de servidor".
+SERVIDOR_B_ID = 1377162618820886553  # <-- REEMPLAZA esto por el ID real antes de hacer deploy
+
 # FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
 # CORREGIDA: ahora calcula el desplazamiento geodésico directo en metros
 # reales (con la corrección por coseno de latitud), en vez de desplazar
@@ -63,6 +68,12 @@ def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
 @bot.event
 async def on_ready():
     print(f'Bot iniciado con éxito como {bot.user}')
+
+    # Salida automática del servidor B (una sola vez; si ya no está ahí, no hace nada)
+    guild_b = bot.get_guild(SERVIDOR_B_ID)
+    if guild_b:
+        await guild_b.leave()
+        print(f'Salí del servidor antiguo: {guild_b.name}')
 
 @bot.event
 async def on_message(message):
