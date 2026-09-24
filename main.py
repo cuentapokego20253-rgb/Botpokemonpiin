@@ -30,21 +30,17 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Mapeo de Canales (Tus 7 canales configurados)
 CANALES_ESPEJO = {
-    1522694582171599011: 1522738552587157536, # ID 100-A      100-B
-    1522694783280349345: 1523963115467837480, # ID 0-A        0-B
-    1522707464150192230: 1523964283484901476, # Copa500 A     Copa 500 B
-    1522695765301133312: 1523907438590296064, # Liga Super A  Liga super B
-    1522695933031219491: 1523907697936826392, # Liga Ultra A  Liga Utra B
-    1522711485586079895: 1525184002011431082, # Pokes Raro A  Pokes Raro B
-    1542034126528446515: 1542034236591050853,  # Pokes XXL-A   Pokes XXL-B
-    1542038203110916096: 1542038383755399259  # MisionSpin A  MisionSpin B
+    1552509377099989113: 1552515652185493564, # ID 100-A      100-B
+    1552509737688629288: 1552515715288793288, # ID 0-A        0-B
+    1552509801789923328: 1552515758859358298, # Copa500 A     Copa 500 B
+    1552509986414796810: 1552515800512987177, # Liga Super A  Liga super B
+    1552510140597407754: 1552515849074507777, # Liga Ultra A  Liga Utra B
+    1552514860586369074: 1552515902312947762, # Pokes Raro A  Pokes Raro B
+    1552515569801105408: 1552516097473908737,  # Keckleon A    Keckleon B
+    1552514916408107038: 1552515967718916176,  # Pokes XXL-A   Pokes XXL-B
+    1552515108822065222: 1552516018289778735  # MisionSpin A  MisionSpin B
   }
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
-
-# ID del servidor B (el antiguo). El bot se sale solo apenas arranca.
-# Cómo conseguirlo: Modo Desarrollador activado en Discord > clic derecho
-# sobre el ícono del servidor B > "Copiar ID de servidor".
-SERVIDOR_B_ID = 1377162618820886553  # <-- REEMPLAZA esto por el ID real antes de hacer deploy
 
 # FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
 # CORREGIDA: ahora calcula el desplazamiento geodésico directo en metros
@@ -68,12 +64,6 @@ def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
 @bot.event
 async def on_ready():
     print(f'Bot iniciado con éxito como {bot.user}')
-
-    # Salida automática del servidor B (una sola vez; si ya no está ahí, no hace nada)
-    guild_b = bot.get_guild(SERVIDOR_B_ID)
-    if guild_b:
-        await guild_b.leave()
-        print(f'Salí del servidor antiguo: {guild_b.name}')
 
 @bot.event
 async def on_message(message):
@@ -117,7 +107,7 @@ async def on_message(message):
 
                     map_url = (
                         f"https://maps.googleapis.com/maps/api/staticmap?"
-                        f"center={lat_f},{lon_f}&zoom=17&size=600x300&scale=2"
+                        f"center={lat_f},{lon_f}&zoom=16&size=600x300&scale=2"
                         f"&markers=color:red%7C{lat_f},{lon_f}"
                         f"&path=color:0xFF0000%7Cweight:2{c40}"
                         f"&path=color:0x0000FF%7Cweight:2{c80}"
