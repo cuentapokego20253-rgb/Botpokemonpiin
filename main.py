@@ -1,7 +1,9 @@
 import os
+import io
 import discord
 import re
 import math
+import aiohttp
 from discord.ext import commands
 from flask import Flask
 from threading import Thread
@@ -42,6 +44,10 @@ CANALES_ESPEJO = {
   }
 MAPS_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
+# Descarga del mapa: cantidad de intentos y segundos máximos por intento
+INTENTOS_MAPA = 3
+TIMEOUT_MAPA_SEG = 5
+
 # FUNCIÓN PARA HACER LOS CÍRCULOS REDONDOS PERFECTOS
 # CORREGIDA: ahora calcula el desplazamiento geodésico directo en metros
 # reales (con la corrección por coseno de latitud), en vez de desplazar
@@ -60,6 +66,35 @@ def hacer_circulo_perfecto(lat, lon, radio_metros, num_puntos=32):
         d_lon = (dx / (R * math.cos(math.radians(lat)))) * (180.0 / math.pi)
         pts.append(f"%7C{lat + d_lat:.6f},{lon + d_lon:.6f}")
     return "".join(pts)
+
+# Evita que la clave de Google aparezca en los logs de Render
+def _sin_clave(texto):
+    texto = str(texto)
+    if MAPS_KEY:
+        texto = texto.replace(MAPS_KEY, "*")
+    return texto
+
+# Descarga la imagen del mapa desde Google con reintentos. Devuelve los
+# bytes de la imagen, o None si fallan todos los intentos (en ese caso el
+# bot igual envía la notificación, pero sin mapa). Cada intento tiene un
+# límite de tiempo, así que el bot nunca queda esperando indefinidamente.
+async def descargar_mapa(map_url, intentos=INTENTOS_MAPA, timeout_seg=TIMEOUT_MAPA_SEG):
+    timeout = aiohttp.ClientTimeout(total=timeout_seg)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        for intento in range(1, intentos + 1):
+            try:
+                async with session.get(map_url) as resp:
+                    if resp.status == 200:
+                        datos = await resp.read()
+                        if datos:
+                            return datos
+                        print(f"Mapa: intento {intento}/{intentos} devolvió una imagen vacía")
+                    else:
+                        detalle = (await resp.text())[:120].replace("\n", " ")
+                        print(f"Mapa: intento {intento}/{intentos} falló, Google respondió {resp.status}: {_sin_clave(detalle)}")
+            except Exception as descarga_err:
+                print(f"Mapa: intento {intento}/{intentos} falló ({type(descarga_err)._name_}): {_sin_clave(descarga_err)}")
+    return None
 
 @bot.event
 async def on_ready():
@@ -99,7 +134,9 @@ async def on_message(message):
                 except Exception:
                     pass
 
-            # Generar el mapa estático si existen coordenadas
+            archivo_mapa = None
+
+            # Generar y descargar el mapa estático si existen coordenadas
             if lat_f is not None and lon_f is not None:
                 try:
                     c40 = hacer_circulo_perfecto(lat_f, lon_f, 40)
@@ -113,10 +150,16 @@ async def on_message(message):
                         f"&path=color:0x0000FF%7Cweight:2{c80}"
                         f"&key={MAPS_KEY}"
                     )
-                    print(f"DEBUG URL: {map_url}")
-                    nuevo_embed.set_image(url=map_url)
+
+                    imagen_bytes = await descargar_mapa(map_url)
+
+                    if imagen_bytes:
+                        archivo_mapa = discord.File(io.BytesIO(imagen_bytes), filename="mapa.png")
+                        nuevo_embed.set_image(url="attachment://mapa.png")
+                    else:
+                        print(f"No se pudo descargar el mapa tras {INTENTOS_MAPA} intentos, se envía sin mapa")
                 except Exception as map_err:
-                    print(f"Error generando mapa: {map_err}")
+                    print(f"Error generando mapa: {_sin_clave(map_err)}")
 
             # Obtención ultra segura del canal destino
             canal_destino_id = CANALES_ESPEJO[message.channel.id]
@@ -130,7 +173,10 @@ async def on_message(message):
 
             # Reenviar el mensaje al canal duplicado
             if canal_destino:
-                await canal_destino.send(embed=nuevo_embed)
+                if archivo_mapa:
+                    await canal_destino.send(embed=nuevo_embed, file=archivo_mapa)
+                else:
+                    await canal_destino.send(embed=nuevo_embed)
 
     except Exception as e:
         print(f"Error general procesando mensaje: {e}")
